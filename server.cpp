@@ -1,43 +1,48 @@
-#include <asio.hpp>
+#include <JSON_Protocol.hpp>
 #include <iostream>
 
-using asio::ip::tcp;
-
-asio::awaitable<void> session(tcp::socket socket) {
+asio::awaitable<void> session(asio::ip::tcp::socket socket) {
+    auto conn = JsonProtocol::Connection(std::move(socket));
     char data[1024];
+    std::cout << "Клиент подключился" << std::endl;
 
-    while (true) {
-        std::size_t n = co_await socket.async_read_some(
-            asio::buffer(data), asio::use_awaitable
-        );
+    while (conn.is_open()) {
+        auto request = co_await conn.read_message();
+        std::cout << "Получен запрос: " << request.type << "/" << request.action
+                  << std::endl;
 
-        std::string message(data, n);
-        std::cout << message;
-        message.erase(
-            std::remove(message.begin(), message.end(), '\n'), message.end()
-        );
-        message.erase(
-            std::remove(message.begin(), message.end(), '\r'), message.end()
-        );
-
-        if (message == "Hi!") {
-            co_await async_write(
-                socket, asio::buffer("HI!", 3), asio::use_awaitable
-            );
-        } else {
-            co_await async_write(
-                socket, asio::buffer(data, n), asio::use_awaitable
-            );
+        if (request.type == "quit" || request.action == "quit") {
+            std::cout << "Клиент завершил работу" << std::endl;
+            break;
         }
+
+        std::cout << request.payload["fib"] << std::endl;
+
+        // Выполнение какой-то нужной задачи
+        int prev_fib = request.payload["prev_fib"];
+        int fib = request.payload["fib"];
+        int temp = fib;
+        fib += prev_fib;
+        prev_fib = temp;
+        JsonProtocol::Message response = JsonProtocol::Message::create_response(
+            request.action, {{"fib", fib}, {"prev_fib", prev_fib}}
+        );
+
+        std::cout << "Ожидание 1 секунду перед ответом..." << std::endl;
+        asio::steady_timer timer(co_await asio::this_coro::executor);
+        timer.expires_after(std::chrono::seconds(1));
+        co_await timer.async_wait(asio::use_awaitable);
+
+        co_await conn.send_message(response);
     }
 }
 
-asio::awaitable<void> listen(tcp::endpoint endpoint) {
+asio::awaitable<void> listen(asio::ip::tcp::endpoint endpoint) {
     auto executor = co_await asio::this_coro::executor;
-    tcp::acceptor acceptor(executor, endpoint);
+    asio::ip::tcp::acceptor acceptor(executor, endpoint);
 
     while (true) {
-        tcp::socket socket =
+        asio::ip::tcp::socket socket =
             co_await acceptor.async_accept(asio::use_awaitable);
         asio::co_spawn(executor, session(std::move(socket)), asio::detached);
     }
@@ -46,7 +51,8 @@ asio::awaitable<void> listen(tcp::endpoint endpoint) {
 int main() {
     asio::io_context io_context;
     asio::co_spawn(
-        io_context, listen(tcp::endpoint{tcp::v4(), 12345}), asio::detached
+        io_context, listen(asio::ip::tcp::endpoint{asio::ip::tcp::v4(), 12345}),
+        asio::detached
     );
 
     io_context.run();
