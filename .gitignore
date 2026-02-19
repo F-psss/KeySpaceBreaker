@@ -43,6 +43,5 @@
 
 .kateproject.build
 compile_commands.json
-json.hpp
 .cmake
 .cache
