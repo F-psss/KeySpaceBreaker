@@ -39,3 +39,10 @@
 
 # debug information files
 *.dwo
+
+
+.kateproject.build
+compile_commands.json
+json.hpp
+.cmake
+.cache
