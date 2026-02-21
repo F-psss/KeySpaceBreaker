@@ -2,38 +2,57 @@
 #include <iostream>
 
 asio::awaitable<void> session(asio::ip::tcp::socket socket) {
-    auto conn = JsonProtocol::Connection(std::move(socket));
+    auto conn = json_protocol::Connection(std::move(socket));
     char data[1024];
     std::cout << "Клиент подключился" << std::endl;
 
     while (conn.is_open()) {
-        JsonProtocol::Message request = co_await conn.read_message();
-        std::cout << "Получен запрос: " << request.type << "/" << request.action
+        json_protocol::Message request = co_await conn.read_message();
+        std::cout << "Получен запрос: "
+                  << json_protocol::type_to_string(request.get_type()) << "/"
+                  << json_protocol::action_to_string(request.get_action())
                   << std::endl;
 
-        if (request.type == "quit" || request.action == "quit") {
+        if (request.get_type() == json_protocol::MessageType::ERROR ||
+            request.get_action() == json_protocol::Action::QUIT) {
             std::cout << "Клиент завершил работу" << std::endl;
             break;
         }
 
-        std::cout << request.payload["fib"] << std::endl;
+        // std::cout << request.payload["fib"] << std::endl;
 
         // Выполнение какой-то нужной задачи
-        int prev_fib = request.payload["prev_fib"];
-        int fib = request.payload["fib"];
-        int temp = fib;
-        fib += prev_fib;
-        prev_fib = temp;
-        JsonProtocol::Message response = JsonProtocol::Message::create_response(
-            request.action, {{"fib", fib}, {"prev_fib", prev_fib}}
-        );
 
-        std::cout << "Ожидание 1 секунду перед ответом..." << std::endl;
-        asio::steady_timer timer(co_await asio::this_coro::executor);
-        timer.expires_after(std::chrono::seconds(1));
-        co_await timer.async_wait(asio::use_awaitable);
+        // Используем фабричный метод для создания ответа
+        if (request.get_action() == json_protocol::Action::PING) {
+            // Получаем доступ к payload
+            auto *payload =
+                dynamic_cast<json_protocol::PingPayload *>(request.payload.get()
+                );
+            if (payload == nullptr) {
+                std::cerr << "Invalid payload for FIBONACCI action"
+                          << std::endl;
+                continue;
+            }
 
-        co_await conn.send_message(response);
+            std::cout << "fib: " << payload->get_code() << std::endl;
+
+            // Вычисляем следующее число
+            int next_fib = payload->get_code() + 1;
+
+            auto new_payload = std::make_unique<json_protocol::PingPayload>();
+            new_payload->set_code(next_fib);
+            auto response = json_protocol::Message::create_pong_response(
+                std::move(new_payload)
+            );
+
+            std::cout << "Ожидание 1 секунду перед ответом..." << std::endl;
+            asio::steady_timer timer(co_await asio::this_coro::executor);
+            timer.expires_after(std::chrono::seconds(1));
+            co_await timer.async_wait(asio::use_awaitable);
+
+            co_await conn.send_message(response);
+        }
     }
 }
 
