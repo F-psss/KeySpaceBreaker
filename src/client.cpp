@@ -1,8 +1,8 @@
-#include <JSON_Protocol.hpp>
+#include "../include/JSON_Protocol.hpp"
 #include <iostream>
 #include <memory>
 #include <string>
-
+#include "client.hpp"
 asio::awaitable<void> read_from_server(
     std::shared_ptr<json_protocol::Connection> conn
 ) {
@@ -42,76 +42,65 @@ asio::awaitable<void> read_from_server(
     }
 }
 
-// Корутина для чтения с stdin, без неё не выводило, крутилось в цикле ввода
-asio::awaitable<void> read_from_stdin(
-    std::shared_ptr<json_protocol::Connection> conn
+asio::awaitable<void> run_client(
+    std::string host,
+    int port,
+    decrypt::CipherType cipher,
+    std::vector<uint8_t> data
 ) {
-    auto executor = co_await asio::this_coro::executor;
-    asio::posix::stream_descriptor stdin_stream(executor, ::dup(STDIN_FILENO));
-
-    asio::streambuf buffer;
-    std::string last_command;
-
     try {
-        while (conn->is_open()) {
-            std::cout << "> " << std::flush;
+        auto executor = co_await asio::this_coro::executor;
+        asio::ip::tcp::socket socket(executor);
 
-            // Асинхронно читаем из stdin
-            size_t n = co_await async_read_until(
-                stdin_stream, buffer, '\n', asio::use_awaitable
+        asio::ip::tcp::resolver resolver(executor);
+        auto endpoints = co_await resolver.async_resolve(
+            host,
+            std::to_string(port),
+            asio::use_awaitable
+        );
+
+        co_await asio::async_connect(
+            socket,
+            endpoints,
+            asio::use_awaitable
+        );
+
+        auto conn =
+            std::make_shared<json_protocol::Connection>(
+                std::move(socket)
             );
 
-            // Извлекаем строку
-            std::istream is(&buffer);
-            std::string line;
-            std::getline(is, line);
+        // ===== формируем payload =====
+        auto payload =
+            std::make_unique<json_protocol::DecryptPayload>();
 
-            // Убираем пробелы
-            line.erase(0, line.find_first_not_of(" \t\r\n"));
-            line.erase(line.find_last_not_of(" \t\r\n") + 1);
+        payload->cipher = cipher;
+        payload->cipher_text =
+            std::string(data.begin(), data.end());
+        payload->start_key = 0;
+        payload->end_key = 100000;
 
-            if (line.empty()) {
-                continue;
-            }
+        auto request =
+            json_protocol::Message::create_decrypt_request(
+                std::move(payload)
+            );
 
-            // Если последняя команда была "start", обрабатываем числа
-            if (last_command == "start") {
-                std::istringstream iss(line);
-                int a{};
-                int b{};
-                if (iss >> a >> b) {
-                    auto new_payload =
-                        std::make_unique<json_protocol::PingPayload>();
-                    new_payload->set_code(a);
-                    auto request = json_protocol::Message::create_ping_request(
-                        std::move(new_payload)
-                    );
-                    co_await conn->send_message(request);
-                } else {
-                    std::cout << "Ошибка: введите два числа" << std::endl;
-                }
-                last_command.clear();
-                continue;
-            }
+        // ===== отправляем =====
+        co_await conn->send_message(request);
 
-            // Обрабатываем команды
-            if (line == "quit") {
-                std::cout << "Exiting..." << std::endl;
-                conn->close();
-                break;
-            } else if (line == "start") {
-                std::cout << "Введите два числа:" << std::endl;
-                last_command = "start";
-            }
+        // ===== ждём ответ =====
+        auto response = co_await conn->read_message();
 
-            // Очищаем буфер
-            buffer.consume(buffer.size());
-        }
-    } catch (const std::exception &e) {
-        std::cout << "Input error: " << e.what() << std::endl;
+        std::cout << "Server responded:\n"
+                  << response.to_json().dump(4)
+                  << std::endl;
+
+    } catch (const std::exception& e) {
+        std::cerr << "Client error: "
+                  << e.what()
+                  << std::endl;
     }
 }
-
 // Основная корутина клиента
 asio::awaitable<void> client() {
     try {
@@ -129,7 +118,6 @@ asio::awaitable<void> client() {
         auto conn =
             std::make_shared<json_protocol::Connection>(std::move(socket));
         asio::co_spawn(executor, read_from_server(conn), asio::detached);
-        asio::co_spawn(executor, read_from_stdin(conn), asio::detached);
 
         while (socket.is_open()) {
             asio::steady_timer timer(executor);
@@ -142,10 +130,4 @@ asio::awaitable<void> client() {
     }
 }
 
-int main() {
-    asio::io_context io_context;
-    asio::co_spawn(io_context, client(), asio::detached);
-    io_context.run();
-
-    return 0;
-}
+asio::co_spawn(io, client(), asio::detached);

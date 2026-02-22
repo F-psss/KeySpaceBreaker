@@ -2,8 +2,8 @@
 #define JSON_PROTOCOL_HPP
 
 #include <asio.hpp>
-#include <enums.hpp>
-#include <nlohmann/json.hpp>
+#include "enums.hpp"
+#include "nlohmann/json.hpp"
 
 using json = nlohmann::json;
 
@@ -42,12 +42,10 @@ class DecryptPayload final : public Payload {
 public:
     [[nodiscard]] json to_json() const final;
     [[nodiscard]] std::unique_ptr<Payload> from_json(const json &) const final;
-
-private:
     decrypt::CipherType cipher;
     std::string cipher_text;  // TODO
-    std::string start_key;    // TODO
-    std::string end_key;      // TODO
+    int start_key;    // TODO
+    int end_key;      // TODO
 };
 
 class StatusPayload final : public Payload {  // TODO
