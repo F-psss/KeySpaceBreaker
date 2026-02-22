@@ -59,19 +59,6 @@ asio::awaitable<void> session(asio::ip::tcp::socket socket) {
                          )
                       << "\n";
         }
-
-        // auto new_payload = std::make_unique<json_protocol::PingPayload>();
-        // new_payload->set_code(next_fib);
-        // auto response = json_protocol::Message::create_pong_response(
-        //     std::move(new_payload)
-        // );
-
-        // std::cout << "Ожидание 1 секунду перед ответом..." << std::endl;
-        // asio::steady_timer timer(co_await asio::this_coro::executor);
-        // timer.expires_after(std::chrono::seconds(1));
-        // co_await timer.async_wait(asio::use_awaitable);
-        //
-        // co_await conn.send_message(response);
     }
 }
 

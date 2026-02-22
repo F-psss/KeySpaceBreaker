@@ -66,10 +66,10 @@ asio::awaitable<void> run_client(
         // ===== формируем payload =====
         auto payload = std::make_unique<json_protocol::DecryptPayload>();
 
-        payload->cipher = cipher;
-        payload->cipher_text = std::string(data.begin(), data.end());
-        payload->start_key = 0;
-        payload->end_key = 100000;
+        payload->set_cipher(cipher);
+        payload->set_cipher_text(data);
+        payload->set_start_key(std::vector<uint8_t>{0});
+        payload->set_end_key(std::vector<uint8_t>{255, 255});
 
         auto request =
             json_protocol::Message::create_decrypt_request(std::move(payload));
@@ -116,5 +116,3 @@ asio::awaitable<void> client() {
         std::cerr << "Client error: " << e.what() << std::endl;
     }
 }
-
-asio::co_spawn(io, client(), asio::detached);
