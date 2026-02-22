@@ -43,11 +43,43 @@ public:
     [[nodiscard]] json to_json() const final;
     [[nodiscard]] std::unique_ptr<Payload> from_json(const json &) const final;
 
+    [[nodiscard]] decrypt::CipherType get_cipher() const {
+        return cipher;
+    }
+
+    [[nodiscard]] std::vector<uint8_t> get_cipher_text() const {
+        return cipher_text;
+    }
+
+    [[nodiscard]] std::vector<uint8_t> get_start_key() const {
+        return start_key;
+    }
+
+    [[nodiscard]] std::vector<uint8_t> get_end_key() const {
+        return end_key;
+    }
+
+    void set_cipher(decrypt::CipherType ciphe) {
+        cipher = ciphe;
+    }
+
+    void set_cipher_text(const std::vector<uint8_t> &cipher_tex) {
+        cipher_text = cipher_tex;
+    }
+
+    void set_start_key(const std::vector<uint8_t> &start_ke) {
+        start_key = start_ke;
+    }
+
+    void set_end_key(const std::vector<uint8_t> &end_ke) {
+        end_key = end_ke;
+    }
+
 private:
     decrypt::CipherType cipher;
-    std::string cipher_text;  // TODO
-    std::string start_key;    // TODO
-    std::string end_key;      // TODO
+    std::vector<uint8_t> cipher_text;
+    std::vector<uint8_t> start_key;
+    std::vector<uint8_t> end_key;
 };
 
 class StatusPayload final : public Payload {  // TODO
