@@ -1,5 +1,4 @@
-#include <BASE64.hpp>
-#include <JSON_Protocol.hpp>
+#include "../include/JSON_Protocol.hpp"
 
 using json = nlohmann::json;
 
@@ -103,17 +102,12 @@ namespace json_protocol {
 
 [[nodiscard]] std::unique_ptr<Payload> DecryptPayload::from_json(const json &j
 ) const {
-    auto payload = std::make_unique<DecryptPayload>();
-
-    // enum - преобразуем из строки
-    payload->cipher = string_to_cipher(j["cipher"]);
-
-    // vector<uint8_t> - явно декодируем из Base64
-    payload->cipher_text = Base64::decode(j["cipher_text"]);
-    payload->start_key = Base64::decode(j["start_key"]);
-    payload->end_key = Base64::decode(j["end_key"]);
-
-    return payload;
+    DecryptPayload payload;
+    payload.cipher = string_to_cipher(j["cipher"]);
+    payload.cipher_text = j["cipher_text"];
+    payload.start_key = j["start_key"];
+    payload.end_key = j["end_key"];
+    return std::make_unique<DecryptPayload>(std::move(payload));
 }
 
 [[nodiscard]] json StatusPayload::to_json() const {
@@ -133,26 +127,24 @@ namespace json_protocol {
     return std::make_unique<StatusPayload>(std::move(payload));
 }
 
-[[nodiscard]] json PingPayload::to_json() const {  // TODO
+[[nodiscard]] json PingPayload::to_json() const {
     json j = {{"code", code}};
     return j;
 }
 
-[[nodiscard]] std::unique_ptr<Payload> PingPayload::from_json(
-    const json &j  // TODO
+[[nodiscard]] std::unique_ptr<Payload> PingPayload::from_json(const json &j
 ) const {
     PingPayload payload;
     payload.code = j["code"];
     return std::make_unique<PingPayload>(std::move(payload));
 }
 
-[[nodiscard]] json QuitPayload::to_json() const {  // TODO
+[[nodiscard]] json QuitPayload::to_json() const {
     json j = {{"code", code}};
     return j;
 }
 
-[[nodiscard]] std::unique_ptr<Payload> QuitPayload::from_json(
-    const json &j  // TODO
+[[nodiscard]] std::unique_ptr<Payload> QuitPayload::from_json(const json &j
 ) const {
     QuitPayload payload;
     payload.code = j["code"];
@@ -185,7 +177,7 @@ Message Message::from_json(const json &j) {
             msg.payload = QuitPayload().from_json(j["payload"]);
             break;
         case Action::UNKNOWN:
-            throw;
+            std::runtime_error("Unknown action");
     }
     return msg;
 }
@@ -217,15 +209,8 @@ Message Message::create_pong_response(std::unique_ptr<Payload> payload) {
 asio::awaitable<void> Connection::send_message(const Message &msg) {
     std::string json_str = msg.to_json().dump();
 
-    json j = msg.to_json();
-    std::cout << "\n🔵 [SEND] ====== ОТПРАВКА СООБЩЕНИЯ ======" << std::endl;
-    std::cout << "📦 Размер JSON: " << json_str.size() << " байт" << std::endl;
-    std::cout << "📄 JSON содержимое:\n" << j.dump(2) << std::endl;
-
     // Формат: [HEADER][JSON]
     uint32_t size = json_str.size();
-
-    std::cout << "📤 Отправка заголовка (size=" << size << " байт)" << std::endl;
 
     // Отправляем размер
     co_await asio::async_write(
@@ -236,21 +221,13 @@ asio::awaitable<void> Connection::send_message(const Message &msg) {
     co_await asio::async_write(
         socket_, asio::buffer(json_str), asio::use_awaitable
     );
-
-    std::cout << "✅ [SEND] Сообщение отправлено успешно" << std::endl;
-    std::cout << "====================================\n" << std::endl;
 }
 
 asio::awaitable<Message> Connection::read_message() {
-    std::cout << "\n🟢 [RECV] ====== ПОЛУЧЕНИЕ СООБЩЕНИЯ ======" << std::endl;
-
     uint32_t size{};
     co_await asio::async_read(
         socket_, asio::buffer(&size, sizeof(size)), asio::use_awaitable
     );
-
-    std::cout << "📥 Получен заголовок: размер сообщения = " << size << " байт"
-              << std::endl;
 
     if (size > MAX_MESSAGE_SIZE) {
         throw std::runtime_error("Message too large");
@@ -258,21 +235,12 @@ asio::awaitable<Message> Connection::read_message() {
 
     // Читаем JSON
     std::vector<char> buffer(size);
-
-    std::cout << "📥 Чтение JSON данных (" << size << " байт)..." << std::endl;
-
     co_await asio::async_read(
         socket_, asio::buffer(buffer), asio::use_awaitable
     );
 
     // Парсим JSON
     json j = json::parse(std::string(buffer.begin(), buffer.end()));
-
-    std::cout << "📄 Полученный JSON:\n";
-    std::cout << j.dump(2) << std::endl;
-
-    std::cout << "✅ [SEND] Сообщение получено успешно" << std::endl;
-    std::cout << "====================================\n" << std::endl;
 
     co_return Message::from_json(j);
 }
