@@ -2,8 +2,8 @@
 #define JSON_PROTOCOL_HPP
 
 #include <asio.hpp>
-#include <enums.hpp>
-#include <nlohmann/json.hpp>
+#include "enums.hpp"
+#include "nlohmann/json.hpp"
 
 using json = nlohmann::json;
 
