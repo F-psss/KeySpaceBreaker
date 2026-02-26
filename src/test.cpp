@@ -6,27 +6,30 @@
 
 int main() {
     try {
-        // чтение текста из файла
         std::string encrypted_text = Server::EncryptedMessage::read_from_file("text.txt");
 
-        // создание объекта зашифрованного текста. тип: цезарь
         auto message = std::make_shared<Server::CaesarEncryptedMessage>(encrypted_text);
 
-        // генерация пространства ключей
-        auto key_space = message->generate_key_space();
+         Server::CaesarWorker worker(message);
 
-        // создание политики для разбиения ключей
-        auto policy = std::make_shared<Server::StaticPolicy>(26, 3);  // 26 ключей для цезаря, разбиваем на юниты по 3 ключа
+        std::vector<std::shared_ptr<Server::Unit>> units;
+        units.push_back(std::make_shared<Server::Unit>(0, 12));
+        units.push_back(std::make_shared<Server::Unit>(13, 25));
 
-        // создание координатора, в конструкторе происходит разбиение на юниты
-        Server::Coordinator coordinator(message, policy);
-
-        // назначение юнитов воркерам
-        for (int i = 0; i < 3; ++i) {
-            coordinator.assign_to_worker(std::make_shared<Server::CaesarWorker>());
+        for (auto& unit : units) {
+            unit->mark_as_leased();
+            worker.process_unit(unit);
         }
 
-    } catch (const std::exception& e) {
-        std::cerr << "Ошибка: " << e.what() << std::endl;}
+        auto result = worker.get_best_result();
+        std::cout << "=== RESULT ===\n" << std::endl;
+        std::cout << "Best Key found: " << result.key_ << std::endl;
+        std::cout << "Score: " << result.score_ << std::endl;
+        std::cout << "Decrypted Text: " << result.text_ << std::endl;
 
+    } catch (const std::exception& e) {
+        std::cerr << "Error: " << e.what() << std::endl;
+        return 1;
+    }
+    return 0;
 }
