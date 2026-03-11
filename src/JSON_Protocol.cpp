@@ -1,5 +1,5 @@
-#include "../include/JSON_Protocol.hpp"
 #include <BASE64.hpp>
+#include <JSON_Protocol.hpp>
 
 using json = nlohmann::json;
 
@@ -118,18 +118,20 @@ namespace json_protocol {
 
 [[nodiscard]] json StatusPayload::to_json() const {
     json j = {
-        {"cipher", cipher_to_string(cipher)},
-        {"cipher_text", cipher_text},
-        {"progress", progress}};
+        {"cipher", cipher_to_string(m_cipher)},
+        {"cipher_text", m_cipher_text},
+        {"key", m_key},
+        {"score", m_score},
+        {"progress", m_progress}};
     return j;
 }
 
 [[nodiscard]] std::unique_ptr<Payload> StatusPayload::from_json(const json &j
 ) const {
-    StatusPayload payload;
-    payload.cipher = string_to_cipher(j["cipher"]);
-    payload.cipher_text = j["cipher_text"];
-    payload.progress = j["progress"];
+    StatusPayload payload(
+        string_to_cipher(j["cipher"]), j["cipher_text"], j["key"], j["score"]
+    );
+    payload.m_progress = j["progress"];
     return std::make_unique<StatusPayload>(std::move(payload));
 }
 

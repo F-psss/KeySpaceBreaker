@@ -69,7 +69,7 @@ asio::awaitable<void> run_client(
         payload->set_cipher(cipher);
         payload->set_cipher_text(data);
         payload->set_start_key(std::vector<uint8_t>{0});
-        payload->set_end_key(std::vector<uint8_t>{255, 255});
+        payload->set_end_key(std::vector<uint8_t>{24});
 
         auto request =
             json_protocol::Message::create_decrypt_request(std::move(payload));

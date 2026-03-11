@@ -3,12 +3,12 @@
 
 #include "Policy.hpp"
 
-namespace Server {
+namespace server {
 
 class StaticPolicy : public Policy {
 public:
     StaticPolicy(int total_keys, int unit_size);
-    std::shared_ptr<Unit> get_next_unit() override;
+    Unit get_next_unit() override;
 
 private:
     int m_total_keys;
@@ -16,6 +16,6 @@ private:
     int m_current_start;
 };
 
-} // namespace Server
+}  // namespace server
 
-#endif // STATIC_POLICY_HPP
+#endif  // STATIC_POLICY_HPP
