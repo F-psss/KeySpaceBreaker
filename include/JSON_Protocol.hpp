@@ -47,15 +47,15 @@ public:
         return cipher;
     }
 
-    [[nodiscard]] std::vector<uint8_t> get_cipher_text() const {
+    [[nodiscard]] const std::vector<uint8_t> &get_cipher_text() const {
         return cipher_text;
     }
 
-    [[nodiscard]] std::vector<uint8_t> get_start_key() const {
+    [[nodiscard]] const std::vector<uint8_t> &get_start_key() const {
         return start_key;
     }
 
-    [[nodiscard]] std::vector<uint8_t> get_end_key() const {
+    [[nodiscard]] const std::vector<uint8_t> &get_end_key() const {
         return end_key;
     }
 
@@ -84,13 +84,41 @@ private:
 
 class StatusPayload final : public Payload {  // TODO
 public:
+    StatusPayload() = default;
+
+    StatusPayload(
+        decrypt::CipherType cipher,
+        std::string cipher_text,
+        int key,
+        double score
+    )
+        : m_cipher(cipher),
+          m_cipher_text(std::move(cipher_text)),
+          m_key(key),
+          m_score(score) {
+    }
+
     [[nodiscard]] json to_json() const final;
     [[nodiscard]] std::unique_ptr<Payload> from_json(const json &) const final;
 
+    [[nodiscard]] std::string get_cipher_text() const {
+        return m_cipher_text;
+    }
+
+    [[nodiscard]] int get_key() const {
+        return m_key;
+    }
+
+    [[nodiscard]] double get_score() const {
+        return m_score;
+    }
+
 private:
-    decrypt::CipherType cipher;
-    std::string cipher_text;
-    int progress;
+    decrypt::CipherType m_cipher = decrypt::CipherType::UNKNOWN;
+    std::string m_cipher_text;
+    int m_key = 0;
+    double m_score;
+    int m_progress;
 };
 
 class PingPayload final : public Payload {  // TODO
