@@ -43,20 +43,45 @@ asio::awaitable<void> Coordinator::assign_to_worker(
                       << " ключей." << std::endl;
 
             co_await worker->send_unit(unit);
-
-            break;
+            co_return;
         }
     }
-    std::cout << "\n\n\n\n\n\n\nBEST\n"
-              << m_best_result.key_ << '\n'
-              << m_best_result.score_ << '\n'
-              << m_best_result.text_;
+    co_return;
 }
+
 
 void Coordinator::cand_to_best(const Result &cand) {
     if (cand.score_ < m_best_result.score_) {
         m_best_result = cand;
     }
+}
+
+bool Coordinator::mark_one_leased_unit_done() {
+    for (auto &unit : m_units) {
+        if (unit.get_status() == UnitStatus::Leased) {
+            unit.mark_as_done();
+            return true;
+        }
+    }
+    return false;
+}
+
+bool Coordinator::has_unassigned_units() const {
+    for (const auto &unit : m_units) {
+        if (unit.get_status() == UnitStatus::Unassigned) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool Coordinator::all_units_done() const {
+    for (const auto &unit : m_units) {
+        if (unit.get_status() != UnitStatus::Done) {
+            return false;
+        }
+    }
+    return true;
 }
 
 }  // namespace server

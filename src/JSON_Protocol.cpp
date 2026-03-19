@@ -271,7 +271,7 @@ asio::awaitable<Message> Connection::read_message() {
     std::cout << "📄 Полученный JSON:\n";
     std::cout << j.dump(2) << std::endl;
 
-    std::cout << "✅ [SEND] Сообщение получено успешно" << std::endl;
+    std::cout << "✅ [RECV] Сообщение получено успешно" << std::endl;
     std::cout << "====================================\n" << std::endl;
 
     co_return Message::from_json(j);

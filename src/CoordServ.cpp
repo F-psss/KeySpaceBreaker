@@ -46,22 +46,23 @@ asio::awaitable<void> CoordinatorServer::worker_accept_loop() {
 }
 
 asio::awaitable<void> CoordinatorServer::client_accept_loop() {
-    try {
-        std::cerr << "Client accept error:" << std::endl;
-        auto socket =
-            co_await m_client_acceptor.async_accept(asio::use_awaitable);
-        std::cerr << "Client accept error: " << std::endl;
-        auto session =
-            std::make_unique<ClientSession>(std::move(socket), *this);
-        std::cerr << "Sess OK" << std::endl;
-        session->start();
-        m_client = std::move(session);
-        std::cerr << "START OK" << std::endl;
+    while (true) {
+        try {
+            std::cout << "Waiting for client..." << std::endl;
 
-        // Принимаем только одного клиента, закрываем acceptor
-        m_client_acceptor.close();
-    } catch (const std::exception &e) {
-        std::cerr << "Client accept error: " << e.what() << std::endl;
+            auto socket =
+                co_await m_client_acceptor.async_accept(asio::use_awaitable);
+
+            auto session =
+                std::make_unique<ClientSession>(std::move(socket), *this);
+
+            session->start();
+            m_client = std::move(session);
+
+            std::cout << "Client connected" << std::endl;
+        } catch (const std::exception &e) {
+            std::cerr << "Client accept error: " << e.what() << std::endl;
+        }
     }
 }
 
@@ -94,6 +95,19 @@ void CoordinatorServer::set_task(
             asio::detached
         );
     }
+}
+
+void CoordinatorServer::send_result_to_client(const Result &result) {
+    if (!m_client) {
+        std::cerr << "No client connected to send result\n";
+        return;
+    }
+
+    asio::co_spawn(
+        m_io,
+        m_client->send_final_result(result),
+        asio::detached
+    );
 }
 
 void ClientSession::handle_task_request(const json_protocol::Message &msg) {

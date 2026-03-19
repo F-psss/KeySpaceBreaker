@@ -31,11 +31,8 @@ public:
         std::shared_ptr<Policy> policy
     );
 
-    // Отправить юнит воркеру (вызывается из Coordinator)
-    void assign_unit_to_worker(
-        std::shared_ptr<Unit> unit,
-        std::shared_ptr<WorkerSession> worker
-    );
+    void send_result_to_client(const Result &result);
+
 
 private:
     asio::io_context &m_io;

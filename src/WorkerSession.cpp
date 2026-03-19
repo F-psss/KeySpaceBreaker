@@ -63,13 +63,31 @@ void WorkerSession::handle_message(const json_protocol::Message &msg) {
             cand_to_best.text_ = payload->get_cipher_text();
             cand_to_best.score_ = payload->get_score();
             m_server.m_coordinator->cand_to_best(cand_to_best);
+            m_server.m_coordinator->mark_one_leased_unit_done();
 
-            asio::co_spawn(
-                m_conn.get_executor(),
-                m_server.m_coordinator->assign_to_worker(shared_from_this()),
-                asio::detached
-            );
-            std::cout << "Received result from worker\n";
+            std::cout << "Received result from worker: key=" << cand_to_best.key_
+                      << " score=" << cand_to_best.score_ << std::endl;
+
+            if (m_server.m_coordinator->has_unassigned_units()) {
+                asio::co_spawn(
+                    m_conn.get_executor(),
+                    m_server.m_coordinator->assign_to_worker(shared_from_this()),
+                    asio::detached
+                );
+            } else if (m_server.m_coordinator->all_units_done()){
+                std::cout << "All units are done. Sending final result to client..."
+                          << std::endl;
+
+                const auto &best = m_server.m_coordinator->best_result();
+
+                std::cout << "\nBEST RESULT ON SERVER\n"
+                          << "key   = " << best.key_ << "\n"
+                          << "score = " << best.score_ << "\n"
+                          << "text  = " << best.text_ << "\n";
+
+                m_server.send_result_to_client(best);
+            }
+
         }
     }
 }

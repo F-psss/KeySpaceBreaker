@@ -80,8 +80,25 @@ asio::awaitable<void> run_client(
         // ===== ждём ответ =====
         auto response = co_await conn->read_message();
 
-        std::cout << "Server responded:\n"
-                  << response.to_json().dump(4) << std::endl;
+        if (response.get_type() == json_protocol::MessageType::RESPONSE &&
+            response.get_action() == json_protocol::Action::STATUS) {
+            auto *payload =
+                dynamic_cast<json_protocol::StatusPayload *>(response.payload.get());
+
+            if (payload != nullptr) {
+                std::cout << "\n===== BEST RESULT =====\n";
+                std::cout << "Key:   " << payload->get_key() << "\n";
+                std::cout << "Score: " << payload->get_score() << "\n";
+                std::cout << "Text:  " << payload->get_cipher_text() << "\n";
+                std::cout << "=======================\n";
+            } else {
+                std::cout << "Server responded:\n"
+                          << response.to_json().dump(4) << std::endl;
+            }
+        } else {
+            std::cout << "Server responded:\n"
+                      << response.to_json().dump(4) << std::endl;
+        }
 
     } catch (const std::exception &e) {
         std::cerr << "Client error: " << e.what() << std::endl;

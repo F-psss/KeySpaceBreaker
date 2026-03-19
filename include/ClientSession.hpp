@@ -15,6 +15,7 @@ class ClientSession {
 public:
     ClientSession(asio::ip::tcp::socket socket, CoordinatorServer &server);
     void start();
+    asio::awaitable<void> send_final_result(const Result &result);
 
 private:
     json_protocol::Connection m_conn;

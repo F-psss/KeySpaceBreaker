@@ -30,6 +30,16 @@ public:
 
     void cand_to_best(const Result &cand);
 
+    bool mark_one_leased_unit_done();
+
+    bool has_unassigned_units() const;
+    
+    bool all_units_done() const;
+
+    [[nodiscard]] const Result &best_result() const{
+        return m_best_result;
+    };
+
 private:
     // constructor
     std::shared_ptr<EncryptedMessage> m_message;
