@@ -77,7 +77,6 @@ void Worker::handle_message(const json_protocol::Message &msg) {
 
         } else {
             std::cout << "WRONG TYPE OF CHIPHER\n\n\n";
-            return;
         }
     }
 }

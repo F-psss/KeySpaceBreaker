@@ -18,7 +18,7 @@ void CaesarDecryptor::process_unit(std::shared_ptr<Unit> unit) {
     }
 
     std::cout << "Worker starting unit [" << unit->get_start() << ", "
-              << unit->get_end() << "]" << std::endl;
+              << unit->get_end() << "]" << '\n';
 
     for (int key = unit->get_start(); key <= unit->get_end(); ++key) {
         std::string candidate_text = m_message->decrypt(key);
@@ -40,9 +40,9 @@ double CaesarDecryptor::calculate_score(const std::string &text) {
     long count[26] = {0};
     long total_letters = 0;
 
-    for (char c : text) {
+    for (const char c : text) {
         if (std::isalpha(c) != 0) {
-            int index = std::tolower(c) - 'a';
+            const int index = std::tolower(c) - 'a';
             if (index >= 0 && index < 26) {
                 count[index]++;
                 total_letters++;
@@ -56,8 +56,8 @@ double CaesarDecryptor::calculate_score(const std::string &text) {
 
     double sum_score = 0.0;
     for (int i = 0; i < 26; ++i) {
-        double expected = total_letters * ENGLISH_FREQS[i];
-        double difference = count[i] - expected;
+        const double expected = total_letters * ENGLISH_FREQS[i];
+        const double difference = count[i] - expected;
         sum_score += (difference * difference) / expected;
     }
 

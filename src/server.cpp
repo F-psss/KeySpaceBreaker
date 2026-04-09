@@ -3,7 +3,6 @@
 
 asio::awaitable<void> session(asio::ip::tcp::socket socket) {
     auto conn = json_protocol::Connection(std::move(socket));
-    char data[1024];
     std::cout << "Клиент подключился" << std::endl;
 
     while (conn.is_open()) {
@@ -18,10 +17,6 @@ asio::awaitable<void> session(asio::ip::tcp::socket socket) {
             std::cout << "Клиент завершил работу" << std::endl;
             break;
         }
-
-        // std::cout << request.payload["fib"] << std::endl;
-
-        // Выполнение какой-то нужной задачи
 
         // Используем фабричный метод для создания ответа
         if (request.get_action() == json_protocol::Action::DECRYPT) {
