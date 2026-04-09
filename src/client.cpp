@@ -44,10 +44,7 @@ asio::awaitable<void> read_from_server(
 }
 
 asio::awaitable<void> run_client(
-    std::string host,
-    int port,
-    decrypt::CipherType cipher,
-    std::vector<uint8_t> data
+const app_config::ClientConfig& cfg
 ) {
     try {
         auto executor = co_await asio::this_coro::executor;
@@ -55,8 +52,10 @@ asio::awaitable<void> run_client(
 
         asio::ip::tcp::resolver resolver(executor);
         auto endpoints = co_await resolver.async_resolve(
-            host, std::to_string(port), asio::use_awaitable
-        );
+    cfg.coordinator_host,
+    std::to_string(cfg.coordinator_port),
+    asio::use_awaitable
+);
 
         co_await asio::async_connect(socket, endpoints, asio::use_awaitable);
 
@@ -66,8 +65,8 @@ asio::awaitable<void> run_client(
         // ===== формируем payload =====
         auto payload = std::make_unique<json_protocol::DecryptPayload>();
 
-        payload->set_cipher(cipher);
-        payload->set_cipher_text(data);
+        payload->set_cipher(cfg.cipher);
+        payload->set_cipher_text(cfg.encrypted_data);
         payload->set_start_key(std::vector<uint8_t>{0});
         payload->set_end_key(std::vector<uint8_t>{24});
 
@@ -98,35 +97,6 @@ asio::awaitable<void> run_client(
         } else {
             std::cout << "Server responded:\n"
                       << response.to_json().dump(4) << std::endl;
-        }
-
-    } catch (const std::exception &e) {
-        std::cerr << "Client error: " << e.what() << std::endl;
-    }
-}
-
-// Основная корутина клиента
-asio::awaitable<void> client() {
-    try {
-        auto executor = co_await asio::this_coro::executor;
-        asio::ip::tcp::socket socket(executor);
-
-        std::cout << "Connecting..." << std::endl;
-
-        co_await socket.async_connect(
-            asio::ip::tcp::endpoint(asio::ip::make_address("127.0.0.1"), 12345),
-            asio::use_awaitable
-        );
-
-        std::cout << "Connected! Type messages below." << std::endl;
-        auto conn =
-            std::make_shared<json_protocol::Connection>(std::move(socket));
-        asio::co_spawn(executor, read_from_server(conn), asio::detached);
-
-        while (socket.is_open()) {
-            asio::steady_timer timer(executor);
-            timer.expires_after(std::chrono::seconds(1));
-            co_await timer.async_wait(asio::use_awaitable);
         }
 
     } catch (const std::exception &e) {
