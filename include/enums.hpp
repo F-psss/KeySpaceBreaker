@@ -1,4 +1,4 @@
-#pragma onse
+#pragma once
 
 namespace json_protocol {
 enum class MessageType { REQUEST, RESPONSE, ERROR, UNKNOWN };

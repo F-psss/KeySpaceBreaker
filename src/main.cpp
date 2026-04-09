@@ -6,7 +6,7 @@
 #include <optional>
 #include <string>
 #include <vector>
-#include "../include/CLI11-2.6.1/include/CLI/CLI.hpp"
+#include "CLI/CLI.hpp"
 #include "../include/JSON_Protocol.hpp"
 #include "client.hpp"
 

@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+#include "enums.hpp"
 
 namespace app_config {
 

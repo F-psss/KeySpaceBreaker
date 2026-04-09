@@ -1,5 +1,5 @@
 #include "worker_config.hpp"
-#include "../include/CLI11-2.6.1/include/CLI/CLI.hpp"
+#include "CLI/CLI.hpp"
 
 #include <stdexcept>
 #include <string>
@@ -15,7 +15,7 @@ app_config::WorkerConfig parse_worker_config(int argc, char** argv) {
     std::string coordinator_host;
     int coordinator_port = 0;
 
-    app.add_option("--listen-host", listen_host, "Worker listen host")->required();
+    // app.add_option("--listen-host", listen_host, "Worker listen host")->required();
     app.add_option("--listen-port", listen_port, "Worker listen port")->required();
     app.add_option("--worker-id", worker_id, "Worker id")->required();
 

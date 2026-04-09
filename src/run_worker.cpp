@@ -4,7 +4,7 @@
 #include <random>
 #include <string>
 #include "worker_config.hpp"
-
+#include "CLI/CLI.hpp"
 int main(int argc, char** argv) {
     try {
         auto cfg = parse_worker_config(argc, argv);
