@@ -30,7 +30,9 @@ public:
 
     void cand_to_best(const Result &cand);
 
-    bool mark_one_leased_unit_done();
+    bool mark_unit_done(std::size_t index);
+
+    const Unit &get_unit(std::size_t index) const { return m_units.at(index); }
 
     bool has_unassigned_units() const;
     

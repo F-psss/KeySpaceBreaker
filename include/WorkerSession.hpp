@@ -16,16 +16,15 @@ public:
     WorkerSession(asio::ip::tcp::socket socket, CoordinatorServer &server);
     void start();
 
-    // Отправить задание воркеру
-    asio::awaitable<void> send_task(EncryptedMessage *encrypted_msg);
 
     // Отправить юнит воркеру
-    asio::awaitable<void> send_unit(const Unit &unit);
+    asio::awaitable<void> send_unit(std::size_t index);
 
 private:
     json_protocol::Connection m_conn;
     CoordinatorServer &m_server;
     asio::awaitable<void> read_loop();
+    std::optional<std::size_t> m_current_unit_index;
     void handle_message(const json_protocol::Message &msg);
 };
 

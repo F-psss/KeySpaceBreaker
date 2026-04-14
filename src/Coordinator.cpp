@@ -24,25 +24,10 @@ Coordinator::Coordinator(
 asio::awaitable<void> Coordinator::assign_to_worker(
     std::shared_ptr<WorkerSession> worker
 ) {
-    for (auto &unit : m_units) {
-        if (unit.get_status() == UnitStatus::Unassigned) {
-            unit.mark_as_leased();
-
-            // отладочная информация
-            std::cout << "Назначен юнит "
-                      << ": "
-                      << "Диапазон [" << unit.get_start() << ", "
-                      << unit.get_end() << "]"
-                      << ", Статус: "
-                      << (unit.get_status() == server::UnitStatus::Unassigned
-                              ? "Unassigned"
-                              : (unit.get_status() == server::UnitStatus::Leased
-                                     ? "Leased"
-                                     : "Done"))
-                      << ", Размер: " << (unit.get_end() - unit.get_start())
-                      << " ключей." << std::endl;
-
-            co_await worker->send_unit(unit);
+    for (int i = 0; i < m_units.size(); i++) {
+        if (m_units[i].get_status() == UnitStatus::Unassigned) {
+            m_units[i].mark_as_leased();
+            co_await worker->send_unit(i);
             co_return;
         }
     }
@@ -56,13 +41,13 @@ void Coordinator::cand_to_best(const Result &cand) {
     }
 }
 
-bool Coordinator::mark_one_leased_unit_done() {
-    for (auto &unit : m_units) {
-        if (unit.get_status() == UnitStatus::Leased) {
-            unit.mark_as_done();
-            return true;
-        }
+bool Coordinator::mark_unit_done(std::size_t index) {
+    
+    if (m_units[index].get_status() == UnitStatus::Leased) {
+        m_units[index].mark_as_done();
+        return true;
     }
+
     return false;
 }
 

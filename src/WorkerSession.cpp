@@ -18,18 +18,17 @@ void WorkerSession::start() {
     asio::co_spawn(m_conn.get_executor(), read_loop(), asio::detached);
 }
 
-asio::awaitable<void> WorkerSession::send_unit(const Unit &unit) {
+asio::awaitable<void> WorkerSession::send_unit(std::size_t index) {
+    m_current_unit_index = index;
+    const Unit &unit = m_server.m_coordinator->get_unit(index);
+
     auto payload = std::make_unique<json_protocol::DecryptPayload>();
     payload->set_cipher(decrypt::CipherType::CAESAR);
-    // В реальном коде нужно передать зашифрованный текст и диапазон ключей.
-    // Здесь используем упрощение: передаём только диапазон, текст должен быть
-    // известен воркеру иначе. Для полноты нужно либо хранить текст в
-    // Coordinator и передавать вместе с юнитом, либо использовать другой
-    // подход. Пока заглушка.
-    std::string dummy_text = m_server.m_coordinator->get_message()->get_text(
-    );  // замените на реальный текст из m_message
+   
+    std::string text = m_server.m_coordinator->get_message()->get_text(
+    );  
     payload->set_cipher_text(
-        std::vector<uint8_t>(dummy_text.begin(), dummy_text.end())
+        std::vector<uint8_t>(text.begin(), text.end())
     );
     payload->set_start_key(std::vector<uint8_t>{
         static_cast<uint8_t>(unit.get_start())});
@@ -63,7 +62,7 @@ void WorkerSession::handle_message(const json_protocol::Message &msg) {
             cand_to_best.text_ = payload->get_cipher_text();
             cand_to_best.score_ = payload->get_score();
             m_server.m_coordinator->cand_to_best(cand_to_best);
-            m_server.m_coordinator->mark_one_leased_unit_done();
+            m_server.m_coordinator->mark_unit_done(m_current_unit_index.value());
 
             std::cout << "Received result from worker: key=" << cand_to_best.key_
                       << " score=" << cand_to_best.score_ << std::endl;
