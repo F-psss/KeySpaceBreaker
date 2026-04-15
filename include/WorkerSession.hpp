@@ -16,9 +16,12 @@ public:
     WorkerSession(asio::ip::tcp::socket socket, CoordinatorServer &server);
     void start();
 
-
     // Отправить юнит воркеру
     asio::awaitable<void> send_unit(std::size_t index);
+
+    [[nodiscard]] bool is_free() {
+        return m_current_unit_index == std::nullopt;
+    }
 
 private:
     json_protocol::Connection m_conn;

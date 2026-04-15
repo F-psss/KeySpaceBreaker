@@ -187,9 +187,17 @@ void CoordinatorServer::handle_timeout(int unit_index) {
     std::cout << "⏰ Таймаут юнита " << unit_index << " (не выполнен за 3 сек)"
               << std::endl;
     m_coordinator->mark_as_unassigned_by_index(unit_index);
-
-    // TODO сделать переностакх воркеров в отдельный список
     remove_worker(m_coordinator->m_pending_units[unit_index].worker);
+    for (auto &worker : m_workers) {
+        if (worker->is_free()) {
+            asio::co_spawn(
+                m_io.get_executor(), m_coordinator->assign_to_worker(worker),
+                asio::detached
+            );
+        }
+    }
+
+    // TODO сделать переностакх воркеров в отдельный списо
 }
 
 }  // namespace server

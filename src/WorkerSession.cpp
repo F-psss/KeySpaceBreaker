@@ -1,6 +1,7 @@
 #include <CoordServ.hpp>
 #include <asio/co_spawn.hpp>
 #include <iostream>
+#include "Coordinator.hpp"
 #include "Unit.hpp"
 
 namespace server {
@@ -61,6 +62,7 @@ void WorkerSession::handle_message(const json_protocol::Message &msg) {
             m_server.m_coordinator->cand_to_best(cand_to_best);
             m_server.m_coordinator->mark_unit_done(m_current_unit_index.value()
             );
+            m_current_unit_index = std::nullopt;
 
             std::cout << "Received result from worker: key="
                       << cand_to_best.key_ << " score=" << cand_to_best.score_
