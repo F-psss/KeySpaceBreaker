@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 #include "CLI/CLI.hpp"
-#include "../include/JSON_Protocol.hpp"
+#include "JSON_Protocol.hpp"
 #include "client.hpp"
 
 //

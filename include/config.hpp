@@ -15,18 +15,14 @@ struct ClientConfig {
     std::vector<uint8_t> encrypted_data;
 };
 
-// struct CoordinatorConfig {
-//     std::string listen_host;
-//     int listen_port;
-//     std::vector<WorkerEndpoint> workers;
-//     ScorePolicy score_policy;
-// };
+struct CoordinatorConfig {
+    int client_port;
+    int worker_port;
+};
 
 struct WorkerConfig {
-    std::string listen_host;
-    int listen_port;
-    std::string worker_id;
-
+    // std::string listen_host;
+    // int listen_port;
     std::string coordinator_host;
     int coordinator_port = 0;
 };

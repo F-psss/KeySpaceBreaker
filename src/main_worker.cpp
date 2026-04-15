@@ -1,16 +1,19 @@
 #include <asio.hpp>
 #include <iostream>
-#include "../include/config.hpp"
-
-app_config::WorkerConfig parse_worker_config(int argc, char** argv);
-asio::awaitable<void> run_worker(const app_config::WorkerConfig& cfg);
+#include "config.hpp"
+#include "CLI/CLI.hpp"
+#include "worker_config.hpp"
+#include "NetworkWorker.hpp"
 
 int main(int argc, char** argv) {
     try {
         auto cfg = parse_worker_config(argc, argv);
 
         asio::io_context io;
-        asio::co_spawn(io, run_worker(cfg), asio::detached);
+
+        Worker worker(io, cfg.coordinator_host, cfg.coordinator_port);
+        worker.start();
+
         io.run();
         return 0;
     }

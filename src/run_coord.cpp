@@ -1,29 +1,37 @@
+#include <CLI/CLI.hpp>
 #include <CoordServ.hpp>
 #include <asio.hpp>
+#include <config.hpp>
 #include <iostream>
+#include "coord_config.hpp"
 
-int main() {
+int main(int argc, char** argv) {
     try {
-        // Создаём io_context – основной цикл событий ASIO
+        auto cfg = parse_coordinator_config(argc, argv);
+        std::cout << "dskljklds";
         asio::io_context io;
 
-        // Создаём сервер координатора
-        // Первый порт – для воркеров, второй – для клиента (один клиент)
-        server::CoordinatorServer server(io, 12345, 12346);
-
-        // Запускаем акцепторы
+        server::CoordinatorServer server(
+            io,
+            cfg.worker_port,
+            cfg.client_port
+        );
+        std::cout << "sfsdfdsfs";
         server.start();
 
-        std::cout << "Coordinator server started." << std::endl;
-        std::cout << "Worker port: 12345, Client port: 12346" << std::endl;
+        std::cout << "Coordinator started\n";
+        std::cout << "Worker port: " << cfg.worker_port << "\n";
+        std::cout << "Client port: " << cfg.client_port << "\n";
 
-        // Запускаем цикл обработки событий (блокирует до завершения)
         io.run();
 
-        std::cout << "Server stopped." << std::endl;
+    } catch (const CLI::ParseError& e) {
+        std::cerr << e.what() << std::endl;
+        return e.get_exit_code();
     } catch (const std::exception &e) {
         std::cerr << "Fatal error: " << e.what() << std::endl;
         return 1;
     }
+
     return 0;
 }

@@ -2,7 +2,7 @@
 #include <iostream>
 #include <memory>
 #include <string>
-#include "../include/JSON_Protocol.hpp"
+#include "JSON_Protocol.hpp"
 
 asio::awaitable<void> run_client(
 const app_config::ClientConfig& cfg
