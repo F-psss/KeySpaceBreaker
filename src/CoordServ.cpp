@@ -15,7 +15,6 @@ CoordinatorServer::CoordinatorServer(
     short client_port
 )
     : m_io(io),
-      m_check_timer(io),
       m_worker_acceptor(
           io,
           asio::ip::tcp::endpoint(asio::ip::tcp::v4(), worker_port)
@@ -23,7 +22,8 @@ CoordinatorServer::CoordinatorServer(
       m_client_acceptor(
           io,
           asio::ip::tcp::endpoint(asio::ip::tcp::v4(), client_port)
-      ) {
+      ),
+      m_check_timer(io) {
     start_timeout_checker();
 }
 

@@ -152,7 +152,7 @@ public:
     Message() = default;
 
     Message(MessageType t, Action a, std::unique_ptr<Payload> p)
-        : type(t), action(a), payload(std::move(p)) {
+        : payload(std::move(p)), type(t), action(a) {
     }
 
     Message(const Message &) = delete;
