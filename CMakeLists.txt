@@ -3,6 +3,9 @@ project(KeySpaceBracker)
 
 set(CMAKE_CXX_STANDARD 20)
 
+set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -Wall")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
+
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include /usr/include/openssl)
 
 add_library(protocol src/JSON_Protocol.cpp)

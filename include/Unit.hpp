@@ -38,6 +38,10 @@ public:
         m_status = UnitStatus::Leased;
     }
 
+    void mark_as_unassigned() {
+        m_status = UnitStatus::Unassigned;
+    }
+
     void mark_as_done() {
         m_status = UnitStatus::Done;
     }

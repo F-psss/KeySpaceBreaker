@@ -1,7 +1,9 @@
 // CoordinatorServer.cpp
 #include <CoordServ.hpp>
 #include <asio/co_spawn.hpp>
+#include <cassert>
 #include <iostream>
+#include "Coordinator.hpp"
 
 namespace server {
 
@@ -13,6 +15,7 @@ CoordinatorServer::CoordinatorServer(
     short client_port
 )
     : m_io(io),
+      m_check_timer(io),
       m_worker_acceptor(
           io,
           asio::ip::tcp::endpoint(asio::ip::tcp::v4(), worker_port)
@@ -21,6 +24,7 @@ CoordinatorServer::CoordinatorServer(
           io,
           asio::ip::tcp::endpoint(asio::ip::tcp::v4(), client_port)
       ) {
+    start_timeout_checker();
 }
 
 void CoordinatorServer::start() {
@@ -103,11 +107,7 @@ void CoordinatorServer::send_result_to_client(const Result &result) {
         return;
     }
 
-    asio::co_spawn(
-        m_io,
-        m_client->send_final_result(result),
-        asio::detached
-    );
+    asio::co_spawn(m_io, m_client->send_final_result(result), asio::detached);
 }
 
 void ClientSession::handle_task_request(const json_protocol::Message &msg) {
@@ -151,6 +151,59 @@ void ClientSession::handle_task_request(const json_protocol::Message &msg) {
 
         m_server.set_task(encrypted_msg, policy);
     }
+}
+
+void CoordinatorServer::start_timeout_checker() {
+    m_check_timer.expires_after(std::chrono::seconds(1));
+    m_check_timer.async_wait([this](std::error_code ec) {
+        if (!ec) {
+            check_timeouts();
+        }
+    });
+}
+
+void CoordinatorServer::check_timeouts() {
+    if (m_coordinator) {
+        // assert(false);
+        auto now = std::chrono::steady_clock::now();
+        for (auto it = m_coordinator->m_pending_units.begin();
+             it != m_coordinator->m_pending_units.end();) {
+            if (now - it->second.start_time >= UNIT_TIMEOUT) {
+                handle_timeout(it->first);
+                it = m_coordinator->m_pending_units.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    }
+
+    start_timeout_checker();  // следующая проверка
+}
+
+void CoordinatorServer::handle_timeout(int unit_index) {
+    if (!m_coordinator) {
+        return;
+    }
+    std::cout << "⏰ Таймаут юнита " << unit_index << " (не выполнен за 3 сек)"
+              << std::endl;
+    m_coordinator->get_unit(unit_index).mark_as_unassigned();
+
+    // Найти другого воркера для перевыдачи
+    for (auto &worker : m_workers) {
+        if (worker != m_coordinator->m_pending_units[unit_index].worker) {
+            asio::co_spawn(
+                m_io,
+                [this, worker]() -> asio::awaitable<void> {
+                    co_await m_coordinator->assign_to_worker(worker);
+                },
+                asio::detached
+            );
+            break;
+        }
+    }
+
+    // TODO сделать переностакх воркеров в отдельный список
+    remove_worker(m_coordinator->m_pending_units[unit_index].worker);
 }
 
 }  // namespace server

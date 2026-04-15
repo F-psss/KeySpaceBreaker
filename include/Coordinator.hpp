@@ -11,6 +11,8 @@
 
 namespace server {
 
+const std::chrono::seconds UNIT_TIMEOUT(3);
+
 class Coordinator {
 public:
     Coordinator(
@@ -32,13 +34,15 @@ public:
 
     bool mark_unit_done(std::size_t index);
 
-    const Unit &get_unit(std::size_t index) const { return m_units.at(index); }
+    [[nodiscard]] Unit &get_unit(std::size_t index) {
+        return m_units.at(index);
+    }
 
-    bool has_unassigned_units() const;
-    
-    bool all_units_done() const;
+    [[nodiscard]] bool has_unassigned_units() const;
 
-    [[nodiscard]] const Result &best_result() const{
+    [[nodiscard]] bool all_units_done() const;
+
+    [[nodiscard]] const Result &best_result() const {
         return m_best_result;
     };
 
@@ -50,6 +54,14 @@ private:
 
     // gen
     std::vector<Unit> m_units{};
+
+    struct PendingUnit {
+        std::shared_ptr<WorkerSession> worker;
+        std::chrono::steady_clock::time_point start_time;
+    };
+
+public:
+    std::unordered_map<size_t, PendingUnit> m_pending_units;
 };
 
 }  // namespace server

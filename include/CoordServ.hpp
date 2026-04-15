@@ -1,6 +1,10 @@
 #pragma once
 
 #include <ClientSession.hpp>
+#include <asio/steady_timer.hpp>
+#include <chrono>
+#include <memory>
+#include <unordered_map>
 #include "Coordinator.hpp"
 #include "EncryptedMessage.hpp"
 #include "JSON_Protocol.hpp"
@@ -33,7 +37,6 @@ public:
 
     void send_result_to_client(const Result &result);
 
-
 private:
     asio::io_context &m_io;
     asio::ip::tcp::acceptor m_worker_acceptor;
@@ -46,6 +49,12 @@ private:
     // Корутины для приёма подключений
     asio::awaitable<void> worker_accept_loop();
     asio::awaitable<void> client_accept_loop();
+
+    asio::steady_timer m_check_timer;
+
+    void start_timeout_checker();
+    void check_timeouts();
+    void handle_timeout(int unit_index);
 };
 
 }  // namespace server
