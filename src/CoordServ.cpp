@@ -186,21 +186,7 @@ void CoordinatorServer::handle_timeout(int unit_index) {
     }
     std::cout << "⏰ Таймаут юнита " << unit_index << " (не выполнен за 3 сек)"
               << std::endl;
-    m_coordinator->get_unit(unit_index).mark_as_unassigned();
-
-    // Найти другого воркера для перевыдачи
-    for (auto &worker : m_workers) {
-        if (worker != m_coordinator->m_pending_units[unit_index].worker) {
-            asio::co_spawn(
-                m_io,
-                [this, worker]() -> asio::awaitable<void> {
-                    co_await m_coordinator->assign_to_worker(worker);
-                },
-                asio::detached
-            );
-            break;
-        }
-    }
+    m_coordinator->mark_as_unassigned_by_index(unit_index);
 
     // TODO сделать переностакх воркеров в отдельный список
     remove_worker(m_coordinator->m_pending_units[unit_index].worker);

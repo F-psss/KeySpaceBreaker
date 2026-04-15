@@ -1,6 +1,7 @@
 #pragma once
 
 #include <WorkerSession.hpp>
+#include <cstddef>
 #include <memory>
 #include <vector>
 #include "Decryptor.hpp"
@@ -36,6 +37,10 @@ public:
 
     [[nodiscard]] Unit &get_unit(std::size_t index) {
         return m_units.at(index);
+    }
+
+    void mark_as_unassigned_by_index(std::size_t index) {
+        m_units[index].mark_as_unassigned();
     }
 
     [[nodiscard]] bool has_unassigned_units() const;
