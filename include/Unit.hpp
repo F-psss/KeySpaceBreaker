@@ -1,5 +1,6 @@
 #ifndef UNIT_HPP
 #define UNIT_HPP
+#include <iostream>
 
 #include <string>
 
@@ -15,7 +16,8 @@ struct Result {
 
 class Unit {
 public:
-    Unit(int start, int end) : m_start(start), m_end(end) {
+    Unit(int start, int end, double noise = 0.0)
+    : m_start(start), m_end(end), m_noise(noise) {
     }
 
     [[nodiscard]] int get_start() const {
@@ -33,6 +35,10 @@ public:
     [[nodiscard]] bool is_end() const {
         return (m_start == -1) && (m_end == -1);
     }
+    [[nodiscard]] double get_noise() const {
+        return m_noise;
+    }
+
 
     void mark_as_leased() {
         m_status = UnitStatus::Leased;
@@ -50,6 +56,7 @@ private:
     int m_start;
     int m_end;
     UnitStatus m_status = UnitStatus::Unassigned;
+    double m_noise = 5555;
 };
 
 }  // namespace server

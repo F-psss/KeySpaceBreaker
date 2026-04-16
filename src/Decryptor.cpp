@@ -22,12 +22,11 @@ void CaesarDecryptor::process_unit(std::shared_ptr<Unit> unit) {
 
     for (int key = unit->get_start(); key <= unit->get_end(); ++key) {
         std::string candidate_text = m_message->decrypt(key);
-
+        m_noise = unit->get_noise();
         const double freq_score = calculate_score(candidate_text);
         const double dict_score = m_dict.score(candidate_text);
-
         // одновременно учитывается словарь и частотный анализ
-        const double score = freq_score - (dict_score * 10.0);
+        const double score = freq_score * (1 - m_noise) - dict_score * m_noise * 80;
         std::cout << "Score = " << score << "\n";
 
         if (score < m_best_result.score_) {

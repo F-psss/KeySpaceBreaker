@@ -97,7 +97,8 @@ namespace json_protocol {
         {"cipher", cipher_to_string(cipher)},
         {"cipher_text", cipher_text},
         {"start_key", start_key},
-        {"end_key", end_key}};
+        {"end_key", end_key},
+    {"noise", noise}};
     return j;
 }
 
@@ -109,6 +110,7 @@ namespace json_protocol {
     payload->cipher = string_to_cipher(j["cipher"]);
 
     // vector<uint8_t> - явно декодируем из Base64
+    payload->noise = j.value("noise", 0.5);
     payload->cipher_text = Base64::decode(j["cipher_text"]);
     payload->start_key = Base64::decode(j["start_key"]);
     payload->end_key = Base64::decode(j["end_key"]);

@@ -69,7 +69,8 @@ void Worker::handle_message(const json_protocol::Message &msg) {
 
             auto unit = std::make_shared<server::Unit>(
                 static_cast<int>(payload->get_start_key()[0]),
-                static_cast<int>(payload->get_end_key()[0])
+                static_cast<int>(payload->get_end_key()[0]),
+                    payload->get_noise()
             );
             asio::co_spawn(
                 m_conn->get_executor(), run_decryptor_task(unit), asio::detached

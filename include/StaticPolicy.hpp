@@ -7,13 +7,14 @@ namespace server {
 
 class StaticPolicy : public Policy {
 public:
-    StaticPolicy(int total_keys, int unit_size);
+    StaticPolicy(int total_keys, int unit_size, double noise);
     Unit get_next_unit() override;
 
 private:
     int m_total_keys;
     int m_unit_size;
     int m_current_start;
+    double m_noise;
 };
 
 }  // namespace server

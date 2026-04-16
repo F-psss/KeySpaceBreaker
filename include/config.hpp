@@ -12,6 +12,7 @@ struct ClientConfig {
     std::string coordinator_host;
     int coordinator_port;
     decrypt::CipherType cipher;
+    double noise;
     std::vector<uint8_t> encrypted_data;
 };
 

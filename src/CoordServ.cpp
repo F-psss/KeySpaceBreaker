@@ -143,11 +143,12 @@ void ClientSession::handle_task_request(const json_protocol::Message &msg) {
             payload->get_start_key().empty() ? 0 : payload->get_start_key()[0];
         int end =
             payload->get_end_key().empty() ? 25 : payload->get_end_key()[0];
-
+        double noise = payload->get_noise();
+        std::cout << "NOISE FROM CLIENT = " << noise << std::endl;
         std::cout << "DEBUG: cipher_keys = " << start << ' ' << end
                   << std::endl;
 
-        auto policy = std::make_shared<StaticPolicy>(26, 5);
+        auto policy = std::make_shared<StaticPolicy>(26, 5, noise);
 
         m_server.set_task(encrypted_msg, policy);
     }

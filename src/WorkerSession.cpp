@@ -25,7 +25,7 @@ asio::awaitable<void> WorkerSession::send_unit(std::size_t index) {
 
     auto payload = std::make_unique<json_protocol::DecryptPayload>();
     payload->set_cipher(decrypt::CipherType::CAESAR);
-
+    payload->set_noise(unit.get_noise());
     std::string text = m_server.m_coordinator->get_message()->get_text();
     payload->set_cipher_text(std::vector<uint8_t>(text.begin(), text.end()));
     payload->set_start_key(std::vector<uint8_t>{

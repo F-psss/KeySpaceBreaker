@@ -74,10 +74,18 @@ public:
     void set_end_key(const std::vector<uint8_t> &end_ke) {
         end_key = end_ke;
     }
+    [[nodiscard]] double get_noise() const {
+        return noise;
+    }
+
+    void set_noise(double n) {
+        noise = n;
+    }
 
 private:
     decrypt::CipherType cipher;
     std::vector<uint8_t> cipher_text;
+    double noise;
     std::vector<uint8_t> start_key;
     std::vector<uint8_t> end_key;
 };
