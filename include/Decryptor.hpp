@@ -3,6 +3,7 @@
 
 #include <CaesarEncryptedMessage.hpp>
 #include <EncryptedMessage.hpp>
+#include <Dictionary.hpp>
 #include <Unit.hpp>
 #include <limits>
 #include <memory>
@@ -27,6 +28,7 @@ public:
     explicit CaesarDecryptor(std::shared_ptr<const EncryptedMessage> message)
         : m_message(std::move(message)),
           m_best_result{-1, std::numeric_limits<double>::max(), ""} {
+        m_dict.load("words.txt");
     }
 
     void process_unit(std::shared_ptr<Unit> unit) override;
@@ -37,6 +39,7 @@ public:
 
 private:
     std::shared_ptr<const EncryptedMessage> m_message;
+    Dictionary m_dict;
     Result m_best_result;
     static double calculate_score(const std::string &text);
     static const double ENGLISH_FREQS[26];
