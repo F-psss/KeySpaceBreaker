@@ -22,8 +22,12 @@ double Dictionary::score(const std::string &text) const {
     while (iss >> word) {
         std::transform(word.begin(), word.end(), word.begin(), ::toupper);
         if (words.contains(word)) {
-            std::cout << word << ' ';
             found++;
+        } else if (!std::isalpha(word[word.size() - 1])) {
+            word.pop_back();
+            if (words.contains(word)) {
+                found++;
+            }
         }
         total++;
     }

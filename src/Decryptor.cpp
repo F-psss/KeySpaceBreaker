@@ -26,7 +26,7 @@ void CaesarDecryptor::process_unit(std::shared_ptr<Unit> unit) {
         const double freq_score = calculate_score(candidate_text);
         const double dict_score = m_dict.score(candidate_text);
         // одновременно учитывается словарь и частотный анализ
-        const double score = freq_score * (1 - m_noise) - dict_score * m_noise * 80;
+        const double score = freq_score * (1 - m_noise * m_noise) - dict_score * m_noise * 100;
         std::cout << "Score = " << score << "\n";
 
         if (score < m_best_result.score_) {

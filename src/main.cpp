@@ -99,7 +99,7 @@ app_config::ClientConfig run(int argc, char **argv) {
         "--input-file", input_file, "Read encrypted data from file"
     );
 
-    double noise = 0.5;
+    double noise = 0.1;
 
     app.add_option("--noise", noise, "Noise level (0..1)");
 
