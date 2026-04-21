@@ -42,19 +42,25 @@ Endpoint parse_server(const std::string &addr) {
 //
 
 std::vector<uint8_t> read_file_binary(const std::string &path) {
-    std::ifstream file(path, std::ios::binary);
+    std::ifstream file(path, std::ios::binary | std::ios::ate);
 
     if (!file) {
         throw std::runtime_error("Cannot open file: " + path);
     }
 
-    return std::vector<uint8_t>(
-        std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()
-    );
+    std::streamsize size = file.tellg();
+    file.seekg(0, std::ios::beg);
+
+    std::vector<uint8_t> buffer(size);
+    if (!file.read(reinterpret_cast<char*>(buffer.data()), size)) {
+        throw std::runtime_error("Error reading file: " + path);
+    }
+
+    return buffer;
 }
 
 std::vector<uint8_t> string_to_bytes(const std::string &text) {
-    return std::vector<uint8_t>(text.begin(), text.end());
+    return {text.begin(), text.end()};
 }
 
 //
@@ -79,11 +85,17 @@ app_config::ClientConfig run(int argc, char **argv) {
         {"vigenere", decrypt::CipherType::VIGENERE},
         {"xor", decrypt::CipherType::XOR}
     };
+    std::map<std::string, decrypt::VigenereMode> mode_map{
+        {"brute", decrypt::VigenereMode::BRUTE},
+        {"fast", decrypt::VigenereMode::FAST}
+    };
 
     app.add_option("--cipher", cipher, "Cipher type")
         ->required()
         ->transform(CLI::CheckedTransformer(cipher_map, CLI::ignore_case));
-
+    decrypt::VigenereMode mode;
+    auto mode_opt = app.add_option("--mode", mode, "Mode for Vigenere: brute|fast")
+        ->transform(CLI::CheckedTransformer(mode_map, CLI::ignore_case));
     //
     // ---------- input ----------
     //
@@ -129,14 +141,19 @@ app_config::ClientConfig run(int argc, char **argv) {
     // ---------- parse ----------
     //
     app.parse(argc, argv);
-
+    if (cipher == decrypt::CipherType::VIGENERE && mode_opt->count() == 0) {
+        throw CLI::ValidationError(
+            "--mode",
+            "Mode is required when cipher=vigenere (use: brute|fast)"
+        );
+    }
     //
     // ---------- build config ----------
     //
     app_config::ClientConfig config;
     config.cipher = cipher;
     config.noise = noise;
-
+    config.mode = mode;
     // input
     if (!input_file.empty()) {
         config.encrypted_data = read_file_binary(input_file);
