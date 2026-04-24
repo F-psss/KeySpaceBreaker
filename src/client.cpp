@@ -37,9 +37,12 @@ const app_config::ClientConfig& cfg
 
         // ===== отправляем =====
         co_await conn->send_message(request);
+        auto start = std::chrono::steady_clock::now();
 
         // ===== ждём ответ =====
         auto response = co_await conn->read_message();
+        auto end = std::chrono::steady_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 
         if (response.get_type() == json_protocol::MessageType::RESPONSE &&
             response.get_action() == json_protocol::Action::STATUS) {
@@ -48,9 +51,10 @@ const app_config::ClientConfig& cfg
 
             if (payload != nullptr) {
                 std::cout << "\n===== BEST RESULT =====\n";
-                std::cout << "Key:   " << payload->get_key() << "\n";
-                std::cout << "Score: " << payload->get_score() << "\n";
                 std::cout << "Text:  " << payload->get_cipher_text() << "\n";
+                std::cout << "Key:   " << payload->get_key() << "\n";
+                std::cout << "Time:  " << static_cast<double>(duration) / 1000 << "s" << "\n";
+                std::cout << "Score: " << payload->get_score() << "\n";
                 std::cout << "=======================\n";
             } else {
                 std::cout << "Server responded:\n"
