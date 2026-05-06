@@ -13,6 +13,7 @@ struct ClientConfig {
     int coordinator_port;
     decrypt::CipherType cipher;
     double noise;
+    decrypt::VigenereMode mode;
     std::vector<uint8_t> encrypted_data;
 };
 
@@ -22,10 +23,9 @@ struct CoordinatorConfig {
 };
 
 struct WorkerConfig {
-    // std::string listen_host;
-    // int listen_port;
     std::string coordinator_host;
-    int coordinator_port = 0;
+    int coordinator_port;
+    std::string dict_path;
 };
 
 } // namespace config
