@@ -58,7 +58,15 @@ public:
     [[nodiscard]] const std::vector<uint8_t> &get_end_key() const {
         return end_key;
     }
-
+    [[nodiscard]] decrypt::VigenereMode get_mode() const {
+        return mode;
+    }
+    [[nodiscard]] int get_key_length() const {
+        return key_length;
+    }
+    [[nodiscard]] double get_noise() const {
+        return noise;
+    }
     void set_cipher(decrypt::CipherType ciphe) {
         cipher = ciphe;
     }
@@ -74,20 +82,25 @@ public:
     void set_end_key(const std::vector<uint8_t> &end_ke) {
         end_key = end_ke;
     }
-    [[nodiscard]] double get_noise() const {
-        return noise;
-    }
 
     void set_noise(double n) {
         noise = n;
     }
+    void set_mode(decrypt::VigenereMode m) {
+        mode = m;
+    }
+    void set_key_length(int key_l) {
+        key_length = key_l;
+    }
 
 private:
     decrypt::CipherType cipher;
+    decrypt::VigenereMode mode;
     std::vector<uint8_t> cipher_text;
     double noise;
     std::vector<uint8_t> start_key;
     std::vector<uint8_t> end_key;
+    int key_length;
 };
 
 class StatusPayload final : public Payload {  // TODO

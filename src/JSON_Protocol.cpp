@@ -79,6 +79,17 @@ namespace json_protocol {
     }
 }
 
+[[nodiscard]] std::string mode_to_string(decrypt::VigenereMode mode) {
+    switch (mode) {
+        case decrypt::VigenereMode::BRUTE:
+            return "brute";
+        case decrypt::VigenereMode::FAST:
+            return "fast";
+        default:
+            return "unknown";
+    }
+}
+
 [[nodiscard]] decrypt::CipherType string_to_cipher(const std::string &str) {
     if (str == "caesar") {
         return decrypt::CipherType::CAESAR;
@@ -92,17 +103,31 @@ namespace json_protocol {
     return decrypt::CipherType::UNKNOWN;
 }
 
+[[nodiscard]] decrypt::VigenereMode string_to_mode(const std::string& str) {
+    if (str == "brute") {
+        return decrypt::VigenereMode::BRUTE;
+    }
+    if (str == "fast") {
+        return decrypt::VigenereMode::FAST;
+    }
+    return decrypt::VigenereMode::UNKNOWN;
+}
+
 [[nodiscard]] json DecryptPayload::to_json() const {
     json j = {
         {"cipher", cipher_to_string(cipher)},
         {"cipher_text", cipher_text},
         {"start_key", start_key},
         {"end_key", end_key},
-    {"noise", noise}};
+        {"mode", mode_to_string(mode)},
+{"key_length", key_length},
+        {"noise", noise}
+    };
     return j;
 }
 
-[[nodiscard]] std::unique_ptr<Payload> DecryptPayload::from_json(const json &j
+[[nodiscard]] std::unique_ptr<Payload> DecryptPayload::from_json(
+    const json &j
 ) const {
     auto payload = std::make_unique<DecryptPayload>();
 
@@ -110,9 +135,11 @@ namespace json_protocol {
     payload->cipher = string_to_cipher(j["cipher"]);
 
     // vector<uint8_t> - явно декодируем из Base64
+    payload->mode = string_to_mode(j.value("mode", "fast"));
     payload->noise = j.value("noise", 0.5);
     payload->cipher_text = Base64::decode(j["cipher_text"]);
     payload->start_key = Base64::decode(j["start_key"]);
+    payload->key_length = j["key_length"];
     payload->end_key = Base64::decode(j["end_key"]);
 
     return payload;
@@ -124,11 +151,13 @@ namespace json_protocol {
         {"cipher_text", m_cipher_text},
         {"key", m_key},
         {"score", m_score},
-        {"progress", m_progress}};
+        {"progress", m_progress}
+    };
     return j;
 }
 
-[[nodiscard]] std::unique_ptr<Payload> StatusPayload::from_json(const json &j
+[[nodiscard]] std::unique_ptr<Payload> StatusPayload::from_json(
+    const json &j
 ) const {
     StatusPayload payload(
         string_to_cipher(j["cipher"]), j["cipher_text"], j["key"], j["score"]
@@ -142,7 +171,8 @@ namespace json_protocol {
     return j;
 }
 
-[[nodiscard]] std::unique_ptr<Payload> PingPayload::from_json(const json &j
+[[nodiscard]] std::unique_ptr<Payload> PingPayload::from_json(
+    const json &j
 ) const {
     PingPayload payload;
     payload.code = j["code"];
@@ -154,7 +184,8 @@ namespace json_protocol {
     return j;
 }
 
-[[nodiscard]] std::unique_ptr<Payload> QuitPayload::from_json(const json &j
+[[nodiscard]] std::unique_ptr<Payload> QuitPayload::from_json(
+    const json &j
 ) const {
     QuitPayload payload;
     payload.code = j["code"];
@@ -165,7 +196,8 @@ namespace json_protocol {
     json j = {
         {"type", type_to_string(type)},
         {"action", action_to_string(action)},
-        {"payload", payload->to_json()}};
+        {"payload", payload->to_json()}
+    };
     return j;
 }
 
@@ -227,7 +259,8 @@ asio::awaitable<void> Connection::send_message(const Message &msg) {
     // Формат: [HEADER][JSON]
     uint32_t size = json_str.size();
 
-    std::cout << "📤 Отправка заголовка (size=" << size << " байт)" << std::endl;
+    std::cout << "📤 Отправка заголовка (size=" << size << " байт)"
+              << std::endl;
 
     // Отправляем размер
     co_await asio::async_write(

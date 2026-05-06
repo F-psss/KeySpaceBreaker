@@ -7,4 +7,5 @@ enum class Action { DECRYPT, STATUS, PING, QUIT, UNKNOWN };
 
 namespace decrypt {
 enum class CipherType { CAESAR, VIGENERE, XOR, UNKNOWN };
+enum class VigenereMode {BRUTE, FAST, UNKNOWN};
 }
