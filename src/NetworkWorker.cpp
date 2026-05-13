@@ -1,10 +1,12 @@
 #include <NetworkWorker.hpp>
 #include <asio/co_spawn.hpp>
+#include <config.hpp>
 #include <memory>
 #include "CaesarEncryptedMessage.hpp"
 #include "Decryptor.hpp"
 #include "EncryptedMessage.hpp"
 #include "JSON_Protocol.hpp"
+#include "VigenereEncryptedMessage.hpp"
 
 void Worker::start() {
     asio::co_spawn(m_io, connect(), asio::detached);
@@ -50,9 +52,9 @@ asio::awaitable<void> Worker::run() {
 }
 
 void Worker::handle_message(const json_protocol::Message &msg) {
-    std::cout << "Получен запрос: "
-              << json_protocol::type_to_string(msg.get_type()) << "/"
-              << json_protocol::action_to_string(msg.get_action()) << std::endl;
+    // std::cout << "Получен запрос: "
+    //           << json_protocol::type_to_string(msg.get_type()) << "/"
+    //           << json_protocol::action_to_string(msg.get_action()) << std::endl;
 
     if (msg.get_type() == json_protocol::MessageType::REQUEST &&
         msg.get_action() == json_protocol::Action::DECRYPT) {
@@ -64,48 +66,76 @@ void Worker::handle_message(const json_protocol::Message &msg) {
                     payload->get_cipher_text().begin(),
                     payload->get_cipher_text().end()
                 ));
-            auto caesar_worker = std::make_unique<server::CaesarDecryptor>(enc);
+            auto caesar_worker =
+                std::make_unique<server::BruteforceDecryptor>(enc, m_dict_path);
             m_decryptor = std::move(caesar_worker);
-
+            auto start_vec = payload->get_start_key();
+auto end_vec = payload->get_end_key();
+if (start_vec.empty() || end_vec.empty()) {
+    std::cerr << "Error: start_key or end_key is empty\n";
+    return;
+}
             auto unit = std::make_shared<server::Unit>(
                 static_cast<int>(payload->get_start_key()[0]),
                 static_cast<int>(payload->get_end_key()[0]),
-                    payload->get_noise()
+                payload->get_cipher(), payload->get_mode(),1, payload->get_noise()
             );
             asio::co_spawn(
                 m_conn->get_executor(), run_decryptor_task(unit), asio::detached
             );
 
+        } else if (payload->get_cipher() == decrypt::CipherType::VIGENERE) {
+            auto enc = std::make_shared<server::VigenereEncryptedMessage>(
+        std::string(payload->get_cipher_text().begin(), payload->get_cipher_text().end()));
+            std::string start_key_str(payload->get_start_key().begin(), payload->get_start_key().end());
+            std::string end_key_str(payload->get_end_key().begin(), payload->get_end_key().end());
+            auto key_to_index = [](const std::string& key) -> int {
+                int idx = 0;
+                for (char c : key) {
+                    idx = idx * 26 + (c - 'A');
+                }
+                return idx;
+            };
+
+            int start = key_to_index(start_key_str);
+            int end   = key_to_index(end_key_str);
+
+            auto vigenere_worker = std::make_unique<server::BruteforceDecryptor>(enc, m_dict_path);
+            m_decryptor = std::move(vigenere_worker);
+
+            auto unit = std::make_shared<server::Unit>(
+                start, end,
+                payload->get_cipher(),
+                payload->get_mode(),
+                payload->get_key_length(),
+                payload->get_noise()
+            );
+            asio::co_spawn(m_conn->get_executor(), run_decryptor_task(unit), asio::detached);
         } else {
             std::cout << "WRONG TYPE OF CHIPHER\n\n\n";
         }
     }
 }
 
-asio::awaitable<void> Worker::run_decryptor_task(
-    std::shared_ptr<server::Unit> unit
-) {
+asio::awaitable<void> Worker::run_decryptor_task(std::shared_ptr<server::Unit> unit) {
     try {
-        std::cout << "РЕЗУЛЬТАТ: "
-                  << "\n";
-        auto *caesar =
-            dynamic_cast<server::CaesarDecryptor *>(m_decryptor.get());
-        if (caesar == nullptr) {
-            throw std::runtime_error("Wrong decryptor type");
+        if (!m_decryptor) {
+            throw std::runtime_error("No decryptor");
         }
 
-        caesar->process_unit(unit);  // передаём unit напрямую
-        auto result = caesar->get_best_result();
-        std::cout << "РЕЗУЛЬТАТ: " << result.text_ << ' ' << result.score_
-                  << "\n";
+        m_decryptor->process_unit(unit);
+        auto result = m_decryptor->get_best_result();
+
+        // std::cout << "РЕЗУЛЬТАТ: " << result.text_ << ' ' << result.score_
+        //           << "\n";
 
         auto st_payload = std::make_unique<json_protocol::StatusPayload>(
-            decrypt::CipherType::CAESAR, result.text_, result.key_,
-            result.score_
+            unit->get_cipher(),
+            result.text_, result.key_, result.score_
         );
-        auto res_msg =
-            json_protocol::Message::create_status_request(std::move(st_payload)
-            );
+        auto res_msg = json_protocol::Message::create_status_request(
+            std::move(st_payload)
+        );
         co_await m_conn->send_message(res_msg);
     } catch (const std::exception &e) {
         std::cerr << "Exception in run_decryptor_task: " << e.what()

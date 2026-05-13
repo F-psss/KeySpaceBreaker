@@ -28,7 +28,6 @@ asio::awaitable<void> Coordinator::assign_to_worker(
         if (m_units[i].get_status() == UnitStatus::Unassigned) {
             m_units[i].mark_as_leased();
             m_pending_units[i] = {worker, std::chrono::steady_clock::now()};
-            std::cout << "Add pending_unit\n";
             co_await worker->send_unit(i);
             co_return;
         }

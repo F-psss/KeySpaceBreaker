@@ -2,7 +2,6 @@
 #define CAESAR_ENCRYPTED_MESSAGE_HPP
 
 #include <EncryptedMessage.hpp>
-#include <memory>
 #include <string>
 #include <vector>
 
@@ -16,7 +15,7 @@ public:
 
     [[nodiscard]] std::string get_text() const override;
     [[nodiscard]] std::vector<int> generate_key_space() const override;
-    [[nodiscard]] std::string decrypt(int key) const override;
+    [[nodiscard]] std::string decrypt(const std::string& key) const override;
 
 private:
     std::string m_encrypted_text;

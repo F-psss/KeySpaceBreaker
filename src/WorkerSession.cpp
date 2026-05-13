@@ -24,14 +24,32 @@ asio::awaitable<void> WorkerSession::send_unit(std::size_t index) {
     const Unit &unit = m_server.m_coordinator->get_unit(index);
 
     auto payload = std::make_unique<json_protocol::DecryptPayload>();
-    payload->set_cipher(decrypt::CipherType::CAESAR);
+    payload->set_cipher(unit.get_cipher());
     payload->set_noise(unit.get_noise());
     std::string text = m_server.m_coordinator->get_message()->get_text();
+    payload->set_key_length(unit.get_key_length());
+    payload->set_mode(unit.get_mode());
     payload->set_cipher_text(std::vector<uint8_t>(text.begin(), text.end()));
+    if (unit.get_cipher() == decrypt::CipherType::VIGENERE) {
+        auto index_to_vigenere_key = [](int index, int length) {
+            std::string key(length, 'A');
+            for (int i = length - 1; i >= 0; --i) {
+                key[i] = 'A' + (index % 26);
+                index /= 26;
+            }
+            return key;
+        };
+        std::string start_key_str = index_to_vigenere_key(unit.get_start(), unit.get_key_length());
+    std::string end_key_str = index_to_vigenere_key(unit.get_end(), unit.get_key_length());
+
+    payload->set_start_key(std::vector<uint8_t>(start_key_str.begin(), start_key_str.end()));
+    payload->set_end_key(std::vector<uint8_t>(end_key_str.begin(), end_key_str.end()));
+} else {
     payload->set_start_key(std::vector<uint8_t>{
         static_cast<uint8_t>(unit.get_start())});
     payload->set_end_key(std::vector<uint8_t>{
         static_cast<uint8_t>(unit.get_end())});
+}
 
     auto msg =
         json_protocol::Message::create_decrypt_request(std::move(payload));
@@ -64,9 +82,9 @@ void WorkerSession::handle_message(const json_protocol::Message &msg) {
             );
             m_current_unit_index = std::nullopt;
 
-            std::cout << "Received result from worker: key="
-                      << cand_to_best.key_ << " score=" << cand_to_best.score_
-                      << std::endl;
+            // std::cout << "Received result from worker: key="
+            //           << cand_to_best.key_ << " score=" << cand_to_best.score_
+            //           << std::endl;
 
             if (m_server.m_coordinator->has_unassigned_units()) {
                 asio::co_spawn(

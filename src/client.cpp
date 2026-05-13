@@ -10,7 +10,6 @@ const app_config::ClientConfig& cfg
     try {
         auto executor = co_await asio::this_coro::executor;
         asio::ip::tcp::socket socket(executor);
-
         asio::ip::tcp::resolver resolver(executor);
         auto endpoints = co_await resolver.async_resolve(
     cfg.coordinator_host,
@@ -31,6 +30,7 @@ const app_config::ClientConfig& cfg
         payload->set_cipher_text(cfg.encrypted_data);
         payload->set_start_key(std::vector<uint8_t>{0});
         payload->set_end_key(std::vector<uint8_t>{24});
+        payload->set_key_length(cfg.key_length);
 
         auto request =
             json_protocol::Message::create_decrypt_request(std::move(payload));

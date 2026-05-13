@@ -110,7 +110,8 @@ app_config::ClientConfig run(int argc, char **argv) {
     auto input_file_opt = input_group->add_option(
         "--input-file", input_file, "Read encrypted data from file"
     );
-
+    int key_length = 3;
+    app.add_option("--key-length", key_length, "Key length for Vigenere (default: 3)");
     double noise = 0.1;
 
     app.add_option("--noise", noise, "Noise level (0..1)");
@@ -154,6 +155,7 @@ app_config::ClientConfig run(int argc, char **argv) {
     config.cipher = cipher;
     config.noise = noise;
     config.mode = mode;
+    config.key_length = key_length;
     // input
     if (!input_file.empty()) {
         config.encrypted_data = read_file_binary(input_file);

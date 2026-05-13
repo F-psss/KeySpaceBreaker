@@ -28,7 +28,7 @@ asio::awaitable<void> ClientSession::read_loop() {
 
 asio::awaitable<void> ClientSession::send_final_result(const Result &result) {
     auto payload = std::make_unique<json_protocol::StatusPayload>(
-        decrypt::CipherType::CAESAR,
+        m_current_cipher,
         result.text_,
         result.key_,
         result.score_

@@ -40,6 +40,12 @@ private:
 
 class DecryptPayload final : public Payload {
 public:
+    DecryptPayload()
+    : cipher(decrypt::CipherType::UNKNOWN),
+      mode(decrypt::VigenereMode::UNKNOWN),
+      noise(0.5),
+      key_length(0)
+{}
     [[nodiscard]] json to_json() const final;
     [[nodiscard]] std::unique_ptr<Payload> from_json(const json &) const final;
 

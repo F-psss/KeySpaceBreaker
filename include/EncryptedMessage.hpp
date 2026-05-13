@@ -18,7 +18,7 @@ public:
 
     [[nodiscard]] virtual std::string get_text() const = 0;
     [[nodiscard]] virtual std::vector<int> generate_key_space() const = 0;
-    [[nodiscard]] virtual std::string decrypt(int key) const = 0;
+    [[nodiscard]] virtual std::string decrypt(const std::string& key) const = 0;
 
     static std::string read_from_file(const std::string &file_path) {
         std::ifstream file(file_path);

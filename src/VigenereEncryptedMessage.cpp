@@ -1,23 +1,32 @@
 #include <VigenereEncryptedMessage.hpp>
+
 namespace server {
-std::string decrypt_vigenere(const std::string& text, const std::string& key) {
+std::string VigenereEncryptedMessage::get_text() const {
+    return m_encrypted_text;
+}
+
+std::string VigenereEncryptedMessage::decrypt(const std::string &key) const {
     std::string result;
-    int key_len = key.size();
-
-    for (size_t i = 0, j = 0; i < text.size(); ++i) {
-        char c = text[i];
-
-        if (std::isalpha(c)) {
-            char base = std::islower(c) ? 'a' : 'A';
-            int shift = std::tolower(key[j % key_len]) - 'a';
-            result += (c - base - shift + 26) % 26 + base;
-            j++;
+    size_t key_len = key.length();
+    if (key_len == 0) {
+        return m_encrypted_text;
+    }
+    size_t key_index = 0;
+    int shift = std::tolower(key[key_index % key_len]) - 'a';
+    for (char c : m_encrypted_text) {
+        if (std::isalpha(static_cast<unsigned char>(c))) {
+            char offset = std::islower(c) ? 'a' : 'A';
+            result += (c - offset - shift + 26) % 26 + offset;
+            ++key_index;
         } else {
             result += c;
         }
     }
-
     return result;
 }
-}// namespace server
-// TODO: get_text(), descrypt()
+std::vector<int> VigenereEncryptedMessage::generate_key_space() const {
+    return {};
+}
+}  // namespace server
+
+// TODO: get_text()

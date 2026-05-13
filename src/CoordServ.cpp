@@ -4,6 +4,7 @@
 #include <cassert>
 #include <iostream>
 #include "Coordinator.hpp"
+#include <VigenereEncryptedMessage.hpp>
 
 namespace server {
 
@@ -121,20 +122,19 @@ void ClientSession::handle_task_request(const json_protocol::Message &msg) {
 
         std::shared_ptr<EncryptedMessage> encrypted_msg;
 
-        // auto cipher_vec = payload->get_cipher_text();
-        // std::cout << "DEBUG: cipher_text size = " << cipher_vec.size()
-        //         << std::endl;
-        // std::string text(cipher_vec.begin(), cipher_vec.end());
-
-        // std::cout << "DEBUG: text = " << text << std::endl;
-
         if (payload->get_cipher() == decrypt::CipherType::CAESAR) {
-            std::cout << "DEBUG: textrrr2 = " << std::endl;
+            m_current_cipher = payload->get_cipher();
             auto cipher_vec = payload->get_cipher_text();
             std::string text(cipher_vec.begin(), cipher_vec.end());
             std::cout << "DEBUG: text2 = " << text << std::endl;
             encrypted_msg = std::make_shared<CaesarEncryptedMessage>(text);
-        } else {
+        }else if (payload->get_cipher() == decrypt::CipherType::VIGENERE) {
+            m_current_cipher = payload->get_cipher();
+            auto cipher_vec = payload->get_cipher_text();
+            std::string text(cipher_vec.begin(), cipher_vec.end());
+            encrypted_msg = std::make_shared<VigenereEncryptedMessage>(text);
+        }
+        else {
             std::cerr << "Unsupported cipher" << std::endl;
             return;
         }
@@ -144,13 +144,25 @@ void ClientSession::handle_task_request(const json_protocol::Message &msg) {
         int end =
             payload->get_end_key().empty() ? 25 : payload->get_end_key()[0];
         double noise = payload->get_noise();
+        decrypt::CipherType cipher = payload->get_cipher();
+        decrypt::VigenereMode mode = payload->get_mode();
         std::cout << "NOISE FROM CLIENT = " << noise << std::endl;
         std::cout << "DEBUG: cipher_keys = " << start << ' ' << end
                   << std::endl;
 
-        auto policy = std::make_shared<StaticPolicy>(26, 5, noise);
+        if (payload->get_cipher() == decrypt::CipherType::CAESAR) {
+            auto policy = std::make_shared<StaticPolicy>(26, 5, noise, cipher, mode, 1);
+            m_server.set_task(encrypted_msg, policy);
+        }
+        else if (payload->get_cipher() == decrypt::CipherType::VIGENERE) {
+            int key_len = payload->get_key_length();
+            int total = std::pow(26, key_len);
 
-        m_server.set_task(encrypted_msg, policy);
+            auto policy = std::make_shared<StaticPolicy>(
+                total, 1000, noise, cipher, mode, key_len
+            );
+            m_server.set_task(encrypted_msg, policy);
+        }
     }
 }
 

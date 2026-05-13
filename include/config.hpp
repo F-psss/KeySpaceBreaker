@@ -14,6 +14,7 @@ struct ClientConfig {
     decrypt::CipherType cipher;
     double noise;
     decrypt::VigenereMode mode;
+    int key_length;
     std::vector<uint8_t> encrypted_data;
 };
 

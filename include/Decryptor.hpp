@@ -1,7 +1,6 @@
 #ifndef WORKER_HPP
 #define WORKER_HPP
 
-#include <CaesarEncryptedMessage.hpp>
 #include <EncryptedMessage.hpp>
 #include <Dictionary.hpp>
 #include <Unit.hpp>
@@ -18,22 +17,23 @@ public:
     Decryptor &operator=(Decryptor &&) = default;
     virtual ~Decryptor() = default;
     virtual void process_unit(std::shared_ptr<Unit> unit) = 0;
+    [[nodiscard]] virtual Result get_best_result() const = 0;
 
 protected:
     Decryptor() = default;
 };
 
-class CaesarDecryptor : public Decryptor {
+class BruteforceDecryptor : public Decryptor {
 public:
-    explicit CaesarDecryptor(std::shared_ptr<const EncryptedMessage> message)
+    explicit BruteforceDecryptor(std::shared_ptr<const EncryptedMessage> message, const std::string& dict_path)
         : m_message(std::move(message)),
           m_best_result{-1, std::numeric_limits<double>::max(), ""} {
-        m_dict.load("../words.txt");
+        m_dict.load(dict_path);
     }
 
     void process_unit(std::shared_ptr<Unit> unit) override;
 
-    [[nodiscard]] Result get_best_result() const {
+    [[nodiscard]] Result get_best_result() const override {
         return m_best_result;
     }
 
@@ -45,6 +45,7 @@ private:
     static double calculate_score(const std::string &text);
     static const double ENGLISH_FREQS[26];
 };
+
 
 }  // namespace server
 

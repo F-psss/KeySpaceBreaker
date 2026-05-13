@@ -20,7 +20,7 @@ public:
 private:
     json_protocol::Connection m_conn;
     CoordinatorServer &m_server;
-
+    decrypt::CipherType m_current_cipher = decrypt::CipherType::UNKNOWN;
     asio::awaitable<void> read_loop();
     void handle_task_request(const json_protocol::Message &msg);
 };

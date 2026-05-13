@@ -23,7 +23,7 @@ double Dictionary::score(const std::string &text) const {
         std::transform(word.begin(), word.end(), word.begin(), ::toupper);
         if (words.contains(word)) {
             found++;
-        } else if (!std::isalpha(word[word.size() - 1])) {
+        } else if (!std::isalpha(static_cast<unsigned char>(word[word.size() - 1]))) {
             word.pop_back();
             if (words.contains(word)) {
                 found++;
@@ -31,6 +31,8 @@ double Dictionary::score(const std::string &text) const {
         }
         total++;
     }
-    std::cout << '\n';
+    if (total == 0) {
+        return 0;
+    }
     return static_cast<double>(found) / total;
 }

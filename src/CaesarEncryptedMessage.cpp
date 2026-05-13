@@ -14,12 +14,13 @@ std::vector<int> CaesarEncryptedMessage::generate_key_space() const {
     return keys;
 }
 
-std::string CaesarEncryptedMessage::decrypt(int key) const {
+std::string CaesarEncryptedMessage::decrypt(const std::string& key) const {
     std::string decrypted_text;
+    int shift = std::stoi(key);
     for (char c : m_encrypted_text) {
         if (isalpha(c) != 0) {
             char offset = (islower(c) != 0) ? 'a' : 'A';
-            decrypted_text += (c - offset - key + 26) % 26 + offset;
+            decrypted_text += (c - offset - shift + 26) % 26 + offset;
         } else {
             decrypted_text += c;
         }

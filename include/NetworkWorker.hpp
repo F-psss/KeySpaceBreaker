@@ -4,12 +4,11 @@
 #include <Decryptor.hpp>
 #include <EncryptedMessage.hpp>
 #include <JSON_Protocol.hpp>
-#include <iostream>
 
 class Worker {
 public:
-    Worker(asio::io_context &io, std::string ip, uint16_t port)
-        : m_io(io), m_coordinator_ip(std::move(ip)), m_coordinator_port(port) {
+    Worker(asio::io_context &io, std::string ip, uint16_t port, const std::string& dict_path)
+        : m_io(io), m_coordinator_ip(std::move(ip)), m_coordinator_port(port), m_dict_path(dict_path) {
     }
 
     void start();
@@ -26,6 +25,7 @@ private:
     std::unique_ptr<server::Decryptor> m_decryptor;
     std::string m_coordinator_ip = "127.0.0.1";
     uint16_t m_coordinator_port = 12345;
+    std::string m_dict_path;
     std::shared_ptr<json_protocol::Connection> m_conn;
 };
 #endif

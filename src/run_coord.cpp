@@ -20,8 +20,8 @@ int main(int argc, char** argv) {
         server.start();
 
         std::cout << "Coordinator started\n";
-        std::cout << "Worker port: " << cfg.worker_port << "\n";
-        std::cout << "Client port: " << cfg.client_port << "\n";
+        std::cout << "Worker port:  " << cfg.worker_port << "\n";
+        std::cout << "Client port:  " << cfg.client_port << "\n";
 
         io.run();
 
