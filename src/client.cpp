@@ -1,21 +1,19 @@
 #include "client.hpp"
+#include <iomanip>
 #include <iostream>
 #include <memory>
 #include <string>
 #include "JSON_Protocol.hpp"
 
-asio::awaitable<void> run_client(
-const app_config::ClientConfig& cfg
-) {
+asio::awaitable<void> run_client(const app_config::ClientConfig &cfg) {
     try {
         auto executor = co_await asio::this_coro::executor;
         asio::ip::tcp::socket socket(executor);
         asio::ip::tcp::resolver resolver(executor);
         auto endpoints = co_await resolver.async_resolve(
-    cfg.coordinator_host,
-    std::to_string(cfg.coordinator_port),
-    asio::use_awaitable
-);
+            cfg.coordinator_host, std::to_string(cfg.coordinator_port),
+            asio::use_awaitable
+        );
 
         co_await asio::async_connect(socket, endpoints, asio::use_awaitable);
 
@@ -42,18 +40,40 @@ const app_config::ClientConfig& cfg
         // ===== ждём ответ =====
         auto response = co_await conn->read_message();
         auto end = std::chrono::steady_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+        auto duration =
+            std::chrono::duration_cast<std::chrono::milliseconds>(end - start)
+                .count();
 
         if (response.get_type() == json_protocol::MessageType::RESPONSE &&
             response.get_action() == json_protocol::Action::STATUS) {
-            auto *payload =
-                dynamic_cast<json_protocol::StatusPayload *>(response.payload.get());
+            auto *payload = dynamic_cast<json_protocol::StatusPayload *>(
+                response.payload.get()
+            );
 
             if (payload != nullptr) {
                 std::cout << "\n===== BEST RESULT =====\n";
                 std::cout << "Text:  " << payload->get_cipher_text() << "\n";
                 std::cout << "Key:   " << payload->get_key() << "\n";
-                std::cout << "Time:  " << static_cast<double>(duration) / 1000 << "s" << "\n";
+                double total_seconds_double = duration / 1000.0;
+                int hours = static_cast<int>(total_seconds_double / 3600);
+                int minutes = static_cast<int>(
+                    (total_seconds_double - hours * 3600) / 60
+                );
+                double seconds_remain =
+                    total_seconds_double - hours * 3600 - minutes * 60;
+
+                if (hours > 0) {
+                    std::cout << "Time:  " << hours << "h " << minutes << "min "
+                              << std::fixed << std::setprecision(1)
+                              << seconds_remain << "s\n";
+                } else if (minutes > 0) {
+                    std::cout << "Time:  " << minutes << "min " << std::fixed
+                              << std::setprecision(1) << seconds_remain
+                              << "s\n";
+                } else {
+                    std::cout << "Time:  " << std::fixed << std::setprecision(2)
+                              << total_seconds_double << "s\n";
+                }
                 std::cout << "Score: " << payload->get_score() << "\n";
                 std::cout << "=======================\n";
             } else {
