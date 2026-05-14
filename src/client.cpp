@@ -27,7 +27,7 @@ asio::awaitable<void> run_client(const app_config::ClientConfig &cfg) {
         payload->set_noise(cfg.noise);
         payload->set_cipher_text(cfg.encrypted_data);
         payload->set_start_key(std::vector<uint8_t>{0});
-        payload->set_end_key(std::vector<uint8_t>{24});
+        payload->set_end_key(std::vector<uint8_t>{25});
         payload->set_key_length(cfg.key_length);
 
         auto request =

@@ -8,7 +8,6 @@
 int main(int argc, char** argv) {
     try {
         auto cfg = parse_coordinator_config(argc, argv);
-        std::cout << "dskljklds";
         asio::io_context io;
 
         server::CoordinatorServer server(
@@ -16,7 +15,6 @@ int main(int argc, char** argv) {
             cfg.worker_port,
             cfg.client_port
         );
-        std::cout << "sfsdfdsfs";
         server.start();
 
         std::cout << "Coordinator started\n";

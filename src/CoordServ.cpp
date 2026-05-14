@@ -155,8 +155,8 @@ void ClientSession::handle_task_request(const json_protocol::Message &msg) {
             m_server.set_task(encrypted_msg, policy);
         }
         else if (payload->get_cipher() == decrypt::CipherType::VIGENERE) {
-            int key_len = payload->get_key_length();
-            int total = std::pow(26, key_len);
+            const int key_len = payload->get_key_length();
+            const int total = std::pow(26, key_len);
 
             auto policy = std::make_shared<StaticPolicy>(
                 total, 1000, noise, cipher, mode, key_len
