@@ -55,6 +55,13 @@ private:
     void start_timeout_checker();
     void check_timeouts();
     void handle_timeout(int unit_index);
+
+    // TODO: сделать путь для сохранения чекпоинта параметром в клиенте
+    std::string m_checkpoint_path = "coordinator_checkpoint.json";
+    std::size_t m_last_checkpoint_done = 0;
+    static constexpr std::size_t CHECKPOINT_EVERY_N_UNITS = 5;
+    void maybe_save_checkpoint();
+
 };
 
 }  // namespace server

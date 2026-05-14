@@ -49,13 +49,22 @@ public:
 
     [[nodiscard]] const Result &best_result() const {
         return m_best_result;
-    };
+    }
+
+    [[nodiscard]] std::size_t done_units_count() const {
+        return m_done_count;
+    }
+
+    void save_checkpoint(const std::string& path) const;
+    bool load_checkpoint(const std::string& path, const std::string& current_text);
+
 
 private:
     // constructor
     std::shared_ptr<EncryptedMessage> m_message;
     std::shared_ptr<Policy> m_policy;
     Result m_best_result;
+    std::size_t m_done_count = 0;
 
     // gen
     std::vector<Unit> m_units{};

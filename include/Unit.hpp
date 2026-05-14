@@ -1,6 +1,7 @@
 #ifndef UNIT_HPP
 #define UNIT_HPP
 #include <iostream>
+#include <nlohmann/json.hpp>
 #include <string>
 #include "enums.hpp"
 
@@ -12,6 +13,16 @@ struct Result {
     int key_;
     double score_;
     std::string text_{};
+
+    nlohmann::json to_json() const {
+        return {{"key", key_}, {"score", score_}, {"text", text_}};
+    }
+
+    static Result from_json(const nlohmann::json &j) {
+        return {
+            j["key"].get<int>(), j["score"].get<double>(),
+            j["text"].get<std::string>()};
+    }
 };
 
 class Unit {
@@ -62,6 +73,33 @@ public:
 
     [[nodiscard]] int get_key_length() const {
         return m_key_length;
+    }
+
+    [[nodiscard]] nlohmann::json to_json() const {
+        return {
+            {"start", m_start},
+            {"end", m_end},
+            {"status", static_cast<int>(m_status)},
+            {"cipher", static_cast<int>(m_cipher)},
+            {"mode", static_cast<int>(m_mode)},
+            {"key_length", m_key_length},
+            {"noise", m_noise}};
+    }
+
+    static Unit from_json(const nlohmann::json &j) {
+        Unit u(
+            j["start"].get<int>(), j["end"].get<int>(),
+            static_cast<decrypt::CipherType>(j["cipher"].get<int>()),
+            static_cast<decrypt::VigenereMode>(j["mode"].get<int>()),
+            j["key_length"].get<int>(), j["noise"].get<double>()
+        );
+        auto status = static_cast<UnitStatus>(j["status"].get<int>());
+
+        if (status == UnitStatus::Leased) {
+            status = UnitStatus::Unassigned;
+        }
+        u.m_status = status;
+        return u;
     }
 
     void mark_as_leased() {

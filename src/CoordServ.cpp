@@ -75,6 +75,13 @@ void CoordinatorServer::add_worker(std::shared_ptr<WorkerSession> worker) {
     m_workers.push_back(worker);
     std::cout << "Worker connected. Total workers: " << m_workers.size()
               << std::endl;
+    if (m_coordinator && m_coordinator->has_unassigned_units()) {
+        asio::co_spawn(
+            m_io.get_executor(),
+            m_coordinator->assign_to_worker(worker),
+            asio::detached
+        );
+    }
 }
 
 void CoordinatorServer::remove_worker(std::shared_ptr<WorkerSession> worker) {
@@ -90,9 +97,20 @@ void CoordinatorServer::set_task(
     std::shared_ptr<EncryptedMessage> message,
     std::shared_ptr<Policy> policy
 ) {
+
     m_coordinator = std::make_unique<Coordinator>(message, policy);
-    std::cout << "New task created. Units: " << m_coordinator->unit_count()
-              << std::endl;
+    // Если есть чекпоинт, то восстанавливаемся из него
+    if (m_coordinator->load_checkpoint(m_checkpoint_path, message->get_text())) {
+        m_last_checkpoint_done = m_coordinator->done_units_count();
+        std::cout << "Restored from checkpoint: "
+                  << m_last_checkpoint_done << "/"
+                  << m_coordinator->unit_count() << " units done" << std::endl;
+    } else {
+        m_last_checkpoint_done = 0;
+        std::cout << "New task created. Units: "
+                  << m_coordinator->unit_count() << std::endl;
+    }
+
     // Попытаться назначить юниты доступным воркерам
     for (auto &worker : m_workers) {
         asio::co_spawn(
@@ -151,6 +169,7 @@ void ClientSession::handle_task_request(const json_protocol::Message &msg) {
                   << std::endl;
 
         if (payload->get_cipher() == decrypt::CipherType::CAESAR) {
+            // TODO: нужно добавить возможность менять размер юнита
             auto policy = std::make_shared<StaticPolicy>(26, 5, noise, cipher, mode, 1);
             m_server.set_task(encrypted_msg, policy);
         }
@@ -190,6 +209,8 @@ void CoordinatorServer::check_timeouts() {
         }
     }
 
+    maybe_save_checkpoint();
+
     start_timeout_checker();  // следующая проверка
 }
 
@@ -211,6 +232,21 @@ void CoordinatorServer::handle_timeout(int unit_index) {
     }
 
     // TODO сделать переностакх воркеров в отдельный списо
+}
+
+void CoordinatorServer::maybe_save_checkpoint() {
+    if (!m_coordinator) {
+        return;
+    }
+    std::size_t done = m_coordinator->done_units_count();
+    bool should_save = (done - m_last_checkpoint_done >= CHECKPOINT_EVERY_N_UNITS)
+                       || (m_coordinator->all_units_done() && done > m_last_checkpoint_done);
+    if (should_save) {
+        m_coordinator->save_checkpoint(m_checkpoint_path);
+        m_last_checkpoint_done = done;
+        std::cout << "Checkpoint saved at " << done << "/"
+                  << m_coordinator->unit_count() << " done units" << std::endl;
+    }
 }
 
 }  // namespace server
