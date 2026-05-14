@@ -12,10 +12,10 @@ std::string VigenereEncryptedMessage::decrypt(const std::string &key) const {
         return m_encrypted_text;
     }
     size_t key_index = 0;
-    int shift = std::tolower(key[key_index % key_len]) - 'a';
     for (char c : m_encrypted_text) {
         if (std::isalpha(static_cast<unsigned char>(c))) {
             char offset = std::islower(c) ? 'a' : 'A';
+            int shift = std::tolower(key[key_index % key_len]) - 'a';
             result += (c - offset - shift + 26) % 26 + offset;
             ++key_index;
         } else {

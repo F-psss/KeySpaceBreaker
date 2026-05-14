@@ -45,6 +45,10 @@ void BruteforceDecryptor::process_unit(std::shared_ptr<Unit> unit) {
     for (long long key = unit->get_start(); key <= unit->get_end(); ++key) {
         std::string candidate_text = m_message->decrypt(current_key);
         const double freq_score = calculate_score(candidate_text);
+        std::cout << "=============\n";
+        std::cout << current_key << ' ' << freq_score << ' ' << key  << std::endl;
+        std::cout << candidate_text << '\n';
+        std::cout << "=============\n";
         double score = freq_score;
         if (m_noise != 0.0) {
             const double dict_score = m_dict.score(candidate_text);
