@@ -16,7 +16,7 @@ std::vector<int> CaesarEncryptedMessage::generate_key_space() const {
 
 std::string CaesarEncryptedMessage::decrypt(const std::string& key) const {
     std::string decrypted_text;
-    int shift = std::stoi(key);
+    int shift = std::toupper(key[0]) - 'A';;
     for (char c : m_encrypted_text) {
         if (isalpha(c) != 0) {
             char offset = (islower(c) != 0) ? 'a' : 'A';
