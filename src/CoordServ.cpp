@@ -111,6 +111,7 @@ asio::awaitable<void> CoordinatorServer::connect_to_peer(std::string address) {
     std::string port_str = address.substr(pos + 1);
 
     while (true) {
+        bool need_retry = false;
         try {
             asio::ip::tcp::socket socket(m_io);
             asio::ip::tcp::resolver resolver(m_io);
@@ -133,6 +134,10 @@ asio::awaitable<void> CoordinatorServer::connect_to_peer(std::string address) {
         } catch (const std::exception &e) {
             std::cerr << "Failed to connect to peer " << address
                       << ": " << e.what() << " — retrying in 3s" << std::endl;
+            need_retry = true;
+        }
+
+        if (need_retry) {
             asio::steady_timer timer(m_io);
             timer.expires_after(std::chrono::seconds(3));
             co_await timer.async_wait(asio::use_awaitable);
