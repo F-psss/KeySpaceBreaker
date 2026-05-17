@@ -16,6 +16,18 @@ namespace json_protocol {
             return "ping";
         case Action::QUIT:
             return "quit";
+        case Action::PEER_HELLO:
+            return "peer_hello";
+        case Action::PEER_PING:
+            return "peer_ping";
+        case Action::PEER_ELECTION:
+            return "peer_election";
+        case Action::PEER_ALIVE:
+            return "peer_alive";
+        case Action::PEER_COORDINATOR:
+            return "peer_coordinator";
+        case Action::PEER_CHECKPOINT:
+            return "peer_checkpoint";
         default:
             return "unknown";
     }
@@ -34,6 +46,24 @@ namespace json_protocol {
     }
     if (str == "quit") {
         return Action::QUIT;
+    }
+    if (str == "peer_hello") {
+        return Action::PEER_HELLO;
+    }
+    if (str == "peer_ping") {
+        return Action::PEER_PING;
+    }
+    if (str == "peer_election") {
+        return Action::PEER_ELECTION;
+    }
+    if (str == "peer_alive") {
+        return Action::PEER_ALIVE;
+    }
+    if (str == "peer_coordinator") {
+        return Action::PEER_COORDINATOR;
+    }
+    if (str == "peer_checkpoint") {
+        return Action::PEER_CHECKPOINT;
     }
     return Action::UNKNOWN;
 }
@@ -103,7 +133,7 @@ namespace json_protocol {
     return decrypt::CipherType::UNKNOWN;
 }
 
-[[nodiscard]] decrypt::VigenereMode string_to_mode(const std::string& str) {
+[[nodiscard]] decrypt::VigenereMode string_to_mode(const std::string &str) {
     if (str == "brute") {
         return decrypt::VigenereMode::BRUTE;
     }
@@ -120,14 +150,12 @@ namespace json_protocol {
         {"start_key", start_key},
         {"end_key", end_key},
         {"mode", mode_to_string(mode)},
-{"key_length", key_length},
-        {"noise", noise}
-    };
+        {"key_length", key_length},
+        {"noise", noise}};
     return j;
 }
 
-[[nodiscard]] std::unique_ptr<Payload> DecryptPayload::from_json(
-    const json &j
+[[nodiscard]] std::unique_ptr<Payload> DecryptPayload::from_json(const json &j
 ) const {
     auto payload = std::make_unique<DecryptPayload>();
 
@@ -151,13 +179,11 @@ namespace json_protocol {
         {"cipher_text", m_cipher_text},
         {"key", m_key},
         {"score", m_score},
-        {"progress", m_progress}
-    };
+        {"progress", m_progress}};
     return j;
 }
 
-[[nodiscard]] std::unique_ptr<Payload> StatusPayload::from_json(
-    const json &j
+[[nodiscard]] std::unique_ptr<Payload> StatusPayload::from_json(const json &j
 ) const {
     StatusPayload payload(
         string_to_cipher(j["cipher"]), j["cipher_text"], j["key"], j["score"]
@@ -171,8 +197,7 @@ namespace json_protocol {
     return j;
 }
 
-[[nodiscard]] std::unique_ptr<Payload> PingPayload::from_json(
-    const json &j
+[[nodiscard]] std::unique_ptr<Payload> PingPayload::from_json(const json &j
 ) const {
     PingPayload payload;
     payload.code = j["code"];
@@ -184,8 +209,7 @@ namespace json_protocol {
     return j;
 }
 
-[[nodiscard]] std::unique_ptr<Payload> QuitPayload::from_json(
-    const json &j
+[[nodiscard]] std::unique_ptr<Payload> QuitPayload::from_json(const json &j
 ) const {
     QuitPayload payload;
     payload.code = j["code"];
@@ -196,9 +220,20 @@ namespace json_protocol {
     json j = {
         {"type", type_to_string(type)},
         {"action", action_to_string(action)},
-        {"payload", payload->to_json()}
-    };
+        {"payload", payload->to_json()}};
     return j;
+}
+
+json HelloPayload::to_json() const {
+    return json{
+        {"peer_id", m_peer_id}
+    };
+}
+
+std::unique_ptr<Payload> HelloPayload::from_json(const json &j) const {
+    auto p = std::make_unique<HelloPayload>();
+    p->m_peer_id = j.at("peer_id").get<int>();
+    return p;
 }
 
 Message Message::from_json(const json &j) {
@@ -218,11 +253,23 @@ Message Message::from_json(const json &j) {
         case Action::QUIT:
             msg.payload = QuitPayload().from_json(j["payload"]);
             break;
+        case Action::PEER_HELLO: {
+            msg.payload = HelloPayload().from_json(j.at("payload"));
+            break;
+        }
+        case Action::PEER_PING:
+        case Action::PEER_ELECTION:
+        case Action::PEER_ALIVE:
+        case Action::PEER_COORDINATOR:
+        case Action::PEER_CHECKPOINT:
+            // TODO: реализовать далее
+            break;
         case Action::UNKNOWN:
-            std::runtime_error("Unknown action");
+            throw std::runtime_error("Unknown action");
     }
     return msg;
 }
+
 
 Message Message::create_decrypt_request(std::unique_ptr<Payload> payload) {
     return {MessageType::REQUEST, Action::DECRYPT, std::move(payload)};
@@ -248,13 +295,21 @@ Message Message::create_pong_response(std::unique_ptr<Payload> payload) {
     return {MessageType::RESPONSE, Action::PING, std::move(payload)};
 }
 
+Message Message::create_peer_hello_request(std::unique_ptr<Payload> payload) {
+    return {MessageType::REQUEST, Action::PEER_HELLO, std::move(payload)};
+}
+
+Message Message::create_peer_hello_response(std::unique_ptr<Payload> payload) {
+    return {MessageType::RESPONSE, Action::PEER_HELLO, std::move(payload)};
+}
+
 asio::awaitable<void> Connection::send_message(const Message &msg) {
     std::string json_str = msg.to_json().dump();
 
     // json j = msg.to_json();
     // std::cout << "\n🔵 [SEND] ====== ОТПРАВКА СООБЩЕНИЯ ======" << std::endl;
-    // std::cout << "📦 Размер JSON: " << json_str.size() << " байт" << std::endl;
-    // std::cout << "📄 JSON содержимое:\n" << j.dump(2) << std::endl;
+    // std::cout << "📦 Размер JSON: " << json_str.size() << " байт" <<
+    // std::endl; std::cout << "📄 JSON содержимое:\n" << j.dump(2) << std::endl;
 
     // Формат: [HEADER][JSON]
     uint32_t size = json_str.size();
@@ -284,7 +339,8 @@ asio::awaitable<Message> Connection::read_message() {
         socket_, asio::buffer(&size, sizeof(size)), asio::use_awaitable
     );
 
-    // std::cout << "📥 Получен заголовок: размер сообщения = " << size << " байт"
+    // std::cout << "📥 Получен заголовок: размер сообщения = " << size << "
+    // байт"
     //           << std::endl;
 
     if (size > MAX_MESSAGE_SIZE) {
@@ -294,7 +350,8 @@ asio::awaitable<Message> Connection::read_message() {
     // Читаем JSON
     std::vector<char> buffer(size);
 
-    // std::cout << "📥 Чтение JSON данных (" << size << " байт)..." << std::endl;
+    // std::cout << "📥 Чтение JSON данных (" << size << " байт)..." <<
+    // std::endl;
 
     co_await asio::async_read(
         socket_, asio::buffer(buffer), asio::use_awaitable

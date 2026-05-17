@@ -205,7 +205,8 @@ public:
     static Message create_status_response(std::unique_ptr<Payload>);
     static Message create_ping_request(std::unique_ptr<Payload>);
     static Message create_pong_response(std::unique_ptr<Payload>);
-
+    static Message create_peer_hello_request(std::unique_ptr<Payload>);
+    static Message create_peer_hello_response(std::unique_ptr<Payload>);
     std::unique_ptr<Payload> payload;
 
 private:
@@ -239,5 +240,27 @@ public:
 private:
     asio::ip::tcp::socket socket_;
 };
+
+class HelloPayload final : public Payload {
+public:
+    HelloPayload() = default;
+    explicit HelloPayload(int peer_id) : m_peer_id(peer_id) {}
+
+    [[nodiscard]] json to_json() const final;
+    [[nodiscard]] std::unique_ptr<Payload> from_json(const json &) const final;
+
+    [[nodiscard]] int get_peer_id() const {
+        return m_peer_id;
+    }
+
+    void set_peer_id(int peer_id) {
+        m_peer_id = peer_id;
+    }
+
+private:
+    int m_peer_id = 0;
+};
+
+
 };  // namespace json_protocol
 #endif

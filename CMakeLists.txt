@@ -20,7 +20,7 @@ add_executable(run_worker src/main_worker.cpp src/coord_config.cpp src/worker_co
 target_compile_definitions(run_worker PRIVATE ASIO_STANDALONE)
 target_link_libraries(run_worker PRIVATE protocol ssl crypto)
 
-add_executable(run_coord src/run_coord.cpp src/coord_config.cpp src/Decryptor.cpp src/Dictionary.cpp src/VigenereEncryptedMessage.cpp src/CaesarEncryptedMessage.cpp src/Coordinator.cpp src/StaticPolicy.cpp src/CoordServ.cpp src/ClientSession.cpp src/WorkerSession.cpp)
+add_executable(run_coord src/run_coord.cpp src/PeerSession.cpp src/coord_config.cpp src/Decryptor.cpp src/Dictionary.cpp src/VigenereEncryptedMessage.cpp src/CaesarEncryptedMessage.cpp src/Coordinator.cpp src/StaticPolicy.cpp src/CoordServ.cpp src/ClientSession.cpp src/WorkerSession.cpp)
 target_compile_definitions(run_coord PRIVATE ASIO_STANDALONE)
 target_link_libraries(run_coord PRIVATE protocol ssl crypto)
 

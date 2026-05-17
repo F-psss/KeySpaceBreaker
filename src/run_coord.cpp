@@ -13,7 +13,11 @@ int main(int argc, char** argv) {
         server::CoordinatorServer server(
             io,
             cfg.worker_port,
-            cfg.client_port
+            cfg.client_port,
+            cfg.peer_port,
+            cfg.id,
+            cfg.peer_addresses,
+            cfg.checkpoint_path
         );
         server.start();
 

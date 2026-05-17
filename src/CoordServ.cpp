@@ -13,25 +13,38 @@ namespace server {
 CoordinatorServer::CoordinatorServer(
     asio::io_context &io,
     short worker_port,
-    short client_port
+    short client_port,
+    short peer_port,
+    int id,
+    std::vector<std::string> peer_addresses,
+    std::string checkpoint_path
 )
     : m_io(io),
+      m_id(id),
       m_worker_acceptor(
-          io,
-          asio::ip::tcp::endpoint(asio::ip::tcp::v4(), worker_port)
+          io, asio::ip::tcp::endpoint(asio::ip::tcp::v4(), worker_port)
       ),
       m_client_acceptor(
-          io,
-          asio::ip::tcp::endpoint(asio::ip::tcp::v4(), client_port)
+          io, asio::ip::tcp::endpoint(asio::ip::tcp::v4(), client_port)
       ),
-      m_check_timer(io) {
+      m_peer_acceptor(
+          io, asio::ip::tcp::endpoint(asio::ip::tcp::v4(), peer_port)
+      ),
+      m_peer_addresses(std::move(peer_addresses)),
+      m_check_timer(io),
+      m_checkpoint_path(std::move(checkpoint_path)) {
     start_timeout_checker();
 }
 
 void CoordinatorServer::start() {
-    // Запускаем корутины для приёма подключений
     asio::co_spawn(m_io, worker_accept_loop(), asio::detached);
     asio::co_spawn(m_io, client_accept_loop(), asio::detached);
+    asio::co_spawn(m_io, peer_accept_loop(), asio::detached);
+
+    
+    for (const auto &addr : m_peer_addresses) {
+        asio::co_spawn(m_io, connect_to_peer(addr), asio::detached);
+    }
 }
 
 asio::awaitable<void> CoordinatorServer::worker_accept_loop() {
@@ -68,6 +81,75 @@ asio::awaitable<void> CoordinatorServer::client_accept_loop() {
         } catch (const std::exception &e) {
             std::cerr << "Client accept error: " << e.what() << std::endl;
         }
+    }
+}
+
+asio::awaitable<void> CoordinatorServer::peer_accept_loop() {
+    while (true) {
+        try {
+            auto socket = co_await m_peer_acceptor.async_accept(asio::use_awaitable);
+            std::cout << "Peer connection accepted (incoming)" << std::endl;
+
+            auto session = std::make_shared<PeerSession>(std::move(socket), *this);
+            add_peer(session);
+            session->start();
+
+        } catch (const std::exception &e) {
+            std::cerr << "Peer accept error: " << e.what() << std::endl;
+        }
+    }
+}
+
+
+asio::awaitable<void> CoordinatorServer::connect_to_peer(std::string address) {
+    auto pos = address.find(':');
+    if (pos == std::string::npos) {
+        std::cerr << "Invalid peer address: " << address << std::endl;
+        co_return;
+    }
+    std::string host = address.substr(0, pos);
+    std::string port_str = address.substr(pos + 1);
+
+    while (true) {
+        try {
+            asio::ip::tcp::socket socket(m_io);
+            asio::ip::tcp::resolver resolver(m_io);
+            auto endpoints = co_await resolver.async_resolve(
+                host, port_str, asio::use_awaitable
+            );
+            co_await asio::async_connect(socket, endpoints, asio::use_awaitable);
+
+            std::cout << "Connected to peer " << address << std::endl;
+
+            auto session = std::make_shared<PeerSession>(std::move(socket), *this);
+            add_peer(session);
+            session->start();
+
+            co_await session->send_hello(
+                m_id, json_protocol::MessageType::REQUEST
+            );
+
+            co_return;
+        } catch (const std::exception &e) {
+            std::cerr << "Failed to connect to peer " << address
+                      << ": " << e.what() << " — retrying in 3s" << std::endl;
+            asio::steady_timer timer(m_io);
+            timer.expires_after(std::chrono::seconds(3));
+            co_await timer.async_wait(asio::use_awaitable);
+        }
+    }
+}
+
+void CoordinatorServer::add_peer(std::shared_ptr<PeerSession> peer) {
+    m_peers.push_back(peer);
+    std::cout << "Total peers: " << m_peers.size() << std::endl;
+}
+
+void CoordinatorServer::remove_peer(std::shared_ptr<PeerSession> peer) {
+    auto it = std::find(m_peers.begin(), m_peers.end(), peer);
+    if (it != m_peers.end()) {
+        m_peers.erase(it);
+        std::cout << "Peer disconnected. Remaining: " << m_peers.size() << std::endl;
     }
 }
 

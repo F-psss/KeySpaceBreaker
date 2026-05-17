@@ -27,17 +27,16 @@ asio::awaitable<void> ClientSession::read_loop() {
 }
 
 asio::awaitable<void> ClientSession::send_final_result(const Result &result) {
-    auto payload = std::make_unique<json_protocol::StatusPayload>(
-        m_current_cipher,
-        result.text_,
-        result.key_,
-        result.score_
-    );
-
-    auto msg =
-        json_protocol::Message::create_status_response(std::move(payload));
-
-    co_await m_conn.send_message(msg);
+    try {
+        auto payload = std::make_unique<json_protocol::StatusPayload>(
+            m_current_cipher, result.text_, result.key_, result.score_
+        );
+        auto msg =
+            json_protocol::Message::create_status_response(std::move(payload));
+        co_await m_conn.send_message(msg);
+    } catch (const std::exception &e) {
+        std::cerr << "Failed to send result to client: " << e.what()
+                  << std::endl;
+    }
 }
-
 }  // namespace server

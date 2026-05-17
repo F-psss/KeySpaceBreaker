@@ -21,6 +21,11 @@ struct ClientConfig {
 struct CoordinatorConfig {
     int client_port;
     int worker_port;
+    int id = 0;                                 
+    int peer_port = 0;                         
+    std::vector<std::string> peer_addresses;     
+
+    std::string checkpoint_path = "coordinator_checkpoint.json";
 };
 
 struct WorkerConfig {
