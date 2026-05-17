@@ -54,6 +54,7 @@ asio::awaitable<void> run_client(const app_config::ClientConfig &cfg) {
                 std::cout << "\n===== BEST RESULT =====\n";
                 std::cout << "Text:  " << payload->get_cipher_text() << "\n";
                 std::cout << "Key:   " << payload->get_key() << "\n";
+                std::cout << "Score: " << payload->get_score() << "\n";
                 double total_seconds_double = duration / 1000.0;
                 int hours = static_cast<int>(total_seconds_double / 3600);
                 int minutes = static_cast<int>(
@@ -74,7 +75,6 @@ asio::awaitable<void> run_client(const app_config::ClientConfig &cfg) {
                     std::cout << "Time:  " << std::fixed << std::setprecision(2)
                               << total_seconds_double << "s\n";
                 }
-                std::cout << "Score: " << payload->get_score() << "\n";
                 std::cout << "=======================\n";
             } else {
                 std::cout << "Server responded:\n"

@@ -27,7 +27,7 @@ class BruteforceDecryptor : public Decryptor {
 public:
     explicit BruteforceDecryptor(std::shared_ptr<const EncryptedMessage> message, const std::string& dict_path)
         : m_message(std::move(message)),
-          m_best_result{-1, std::numeric_limits<double>::max(), ""} {
+          m_best_result{"-1", std::numeric_limits<double>::max(), ""} {
         m_dict.load(dict_path);
     }
 

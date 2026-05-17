@@ -10,7 +10,7 @@ namespace server {
 enum class UnitStatus { Unassigned, Leased, Done };
 
 struct Result {
-    int key_;
+    std::string key_;
     double score_;
     std::string text_{};
 
@@ -20,8 +20,9 @@ struct Result {
 
     static Result from_json(const nlohmann::json &j) {
         return {
-            j["key"].get<int>(), j["score"].get<double>(),
-            j["text"].get<std::string>()};
+            j["key"].get<std::string>(), j["score"].get<double>(),
+            j["text"].get<std::string>()
+        };
     }
 };
 
@@ -83,7 +84,8 @@ public:
             {"cipher", static_cast<int>(m_cipher)},
             {"mode", static_cast<int>(m_mode)},
             {"key_length", m_key_length},
-            {"noise", m_noise}};
+            {"noise", m_noise}
+        };
     }
 
     static Unit from_json(const nlohmann::json &j) {

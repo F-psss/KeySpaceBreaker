@@ -54,7 +54,7 @@ void BruteforceDecryptor::process_unit(std::shared_ptr<Unit> unit) {
         }
         if (score < m_best_result.score_) {
             m_best_result.score_ = score;
-            m_best_result.key_ = key;
+            m_best_result.key_ = current_key;
             m_best_result.text_ = candidate_text;
         }
         if (key < unit->get_end()) {

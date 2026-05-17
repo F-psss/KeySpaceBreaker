@@ -116,7 +116,7 @@ public:
     StatusPayload(
         decrypt::CipherType cipher,
         std::string cipher_text,
-        int key,
+        std::string key,
         double score
     )
         : m_cipher(cipher),
@@ -132,7 +132,7 @@ public:
         return m_cipher_text;
     }
 
-    [[nodiscard]] int get_key() const {
+    [[nodiscard]] std::string get_key() const {
         return m_key;
     }
 
@@ -143,7 +143,7 @@ public:
 private:
     decrypt::CipherType m_cipher = decrypt::CipherType::UNKNOWN;
     std::string m_cipher_text;
-    int m_key = 0;
+    std::string m_key;
     double m_score;
     int m_progress;
 };

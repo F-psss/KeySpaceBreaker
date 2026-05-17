@@ -10,7 +10,7 @@ Coordinator::Coordinator(
 )
     : m_message(message),
       m_policy(policy),
-      m_best_result{-1, std::numeric_limits<double>::max(), ""} {
+      m_best_result{"-1", std::numeric_limits<double>::max(), ""} {
     // Генерация юнитов на основе диапазонов, предоставленных политикой
     while (true) {
         auto unit = m_policy->get_next_unit();
