@@ -16,7 +16,7 @@ namespace json_protocol {
 [[nodiscard]] std::string cipher_to_string(decrypt::CipherType type);
 [[nodiscard]] decrypt::CipherType string_to_cipher(const std::string &str);
 
-static constexpr uint32_t MAX_MESSAGE_SIZE = 10 * 1024;  // 10KB
+static constexpr uint32_t MAX_MESSAGE_SIZE = 100 * 1024;  // 100KB
 static constexpr uint32_t HEADER_SIZE = 32;
 
 class Payload {

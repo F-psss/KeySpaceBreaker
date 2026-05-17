@@ -12,7 +12,7 @@
 
 namespace server {
 
-const std::chrono::seconds UNIT_TIMEOUT(3);
+const std::chrono::seconds UNIT_TIMEOUT(10);
 
 class Coordinator {
 public:

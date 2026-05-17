@@ -218,7 +218,7 @@ void CoordinatorServer::handle_timeout(int unit_index) {
     if (!m_coordinator) {
         return;
     }
-    std::cout << "⏰ Таймаут юнита " << unit_index << " (не выполнен за 3 сек)"
+    std::cout << "⏰ Таймаут юнита " << unit_index << " (не выполнен за 10 сек)"
               << std::endl;
     m_coordinator->mark_as_unassigned_by_index(unit_index);
     remove_worker(m_coordinator->m_pending_units[unit_index].worker);

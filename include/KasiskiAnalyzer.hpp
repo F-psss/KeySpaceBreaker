@@ -12,4 +12,3 @@ public:
     // Разбивает текст на N последовательностей (по модулю keyLength)
     static std::vector<std::string> splitByModulo(const std::string& text, int keyLength);
 };
-};
