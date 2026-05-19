@@ -29,6 +29,7 @@ private:
     asio::awaitable<void> read_loop();
     std::optional<std::size_t> m_current_unit_index;
     void handle_message(const json_protocol::Message &msg);
+    bool m_text_sent = false;
 };
 
 }  // namespace server

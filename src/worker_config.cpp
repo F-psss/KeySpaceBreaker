@@ -12,6 +12,7 @@ app_config::WorkerConfig parse_worker_config(int argc, char** argv) {
     std::string coordinator_host = "127.0.0.1";
     int coordinator_port = 0;
     std::string dict_path;
+    bool use_cache = true;
     app.add_option("--coordinator-host", coordinator_host, "Coordinator host")->required();
     app.add_option("--coordinator-port", coordinator_port, "Coordinator port")->required();
     app.add_option("--dict", dict_path, "path_to_dict")->required();

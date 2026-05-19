@@ -54,42 +54,58 @@ asio::awaitable<void> Worker::run() {
 void Worker::handle_message(const json_protocol::Message &msg) {
     // std::cout << "Получен запрос: "
     //           << json_protocol::type_to_string(msg.get_type()) << "/"
-    //           << json_protocol::action_to_string(msg.get_action()) << std::endl;
+    //           << json_protocol::action_to_string(msg.get_action()) <<
+    //           std::endl;
 
     if (msg.get_type() == json_protocol::MessageType::REQUEST &&
         msg.get_action() == json_protocol::Action::DECRYPT) {
         auto *payload =
             dynamic_cast<json_protocol::DecryptPayload *>(msg.payload.get());
+        // Кэширование: если в payload есть cipher_text, сохраняем
+        if (!payload->get_cipher_text().empty()) {
+            m_cachedCiphertext = payload->get_cipher_text();
+            m_hasCiphertext = true;
+        }
+
+        // Используем кэшированный текст для дешифрования
+        if (!m_hasCiphertext) {
+            std::cerr << "Error: No ciphertext received yet" << std::endl;
+            return;
+        }
+
+        // Далее используем m_cachedCiphertext вместо payload->get_cipher_text()
+        const std::string text(m_cachedCiphertext.begin(), m_cachedCiphertext.end());
         if (payload->get_cipher() == decrypt::CipherType::CAESAR) {
-            auto enc =
-                std::make_shared<server::CaesarEncryptedMessage>(std::string(
-                    payload->get_cipher_text().begin(),
-                    payload->get_cipher_text().end()
-                ));
+            auto enc = std::make_shared<server::CaesarEncryptedMessage>(text);
             auto caesar_worker =
                 std::make_unique<server::BruteforceDecryptor>(enc, m_dict_path);
             m_decryptor = std::move(caesar_worker);
             auto start_vec = payload->get_start_key();
-auto end_vec = payload->get_end_key();
-if (start_vec.empty() || end_vec.empty()) {
-    std::cerr << "Error: start_key or end_key is empty\n";
-    return;
-}
+            auto end_vec = payload->get_end_key();
+            if (start_vec.empty() || end_vec.empty()) {
+                std::cerr << "Error: start_key or end_key is empty\n";
+                return;
+            }
             auto unit = std::make_shared<server::Unit>(
                 static_cast<int>(payload->get_start_key()[0]),
                 static_cast<int>(payload->get_end_key()[0]),
-                payload->get_cipher(), payload->get_mode(),1, payload->get_noise()
+                payload->get_cipher(), payload->get_mode(), 1,
+                payload->get_noise()
             );
             asio::co_spawn(
                 m_conn->get_executor(), run_decryptor_task(unit), asio::detached
             );
 
         } else if (payload->get_cipher() == decrypt::CipherType::VIGENERE) {
-            auto enc = std::make_shared<server::VigenereEncryptedMessage>(
-        std::string(payload->get_cipher_text().begin(), payload->get_cipher_text().end()));
-            std::string start_key_str(payload->get_start_key().begin(), payload->get_start_key().end());
-            std::string end_key_str(payload->get_end_key().begin(), payload->get_end_key().end());
-            auto key_to_index = [](const std::string& key) -> int {
+            auto enc =
+                std::make_shared<server::VigenereEncryptedMessage>(text);
+            std::string start_key_str(
+                payload->get_start_key().begin(), payload->get_start_key().end()
+            );
+            std::string end_key_str(
+                payload->get_end_key().begin(), payload->get_end_key().end()
+            );
+            auto key_to_index = [](const std::string &key) -> int {
                 int idx = 0;
                 for (char c : key) {
                     idx = idx * 26 + (c - 'A');
@@ -98,26 +114,28 @@ if (start_vec.empty() || end_vec.empty()) {
             };
 
             int start = key_to_index(start_key_str);
-            int end   = key_to_index(end_key_str);
+            int end = key_to_index(end_key_str);
 
-            auto vigenere_worker = std::make_unique<server::BruteforceDecryptor>(enc, m_dict_path);
+            auto vigenere_worker =
+                std::make_unique<server::BruteforceDecryptor>(enc, m_dict_path);
             m_decryptor = std::move(vigenere_worker);
 
             auto unit = std::make_shared<server::Unit>(
-                start, end,
-                payload->get_cipher(),
-                payload->get_mode(),
-                payload->get_key_length(),
-                payload->get_noise()
+                start, end, payload->get_cipher(), payload->get_mode(),
+                payload->get_key_length(), payload->get_noise()
             );
-            asio::co_spawn(m_conn->get_executor(), run_decryptor_task(unit), asio::detached);
+            asio::co_spawn(
+                m_conn->get_executor(), run_decryptor_task(unit), asio::detached
+            );
         } else {
             std::cout << "WRONG TYPE OF CHIPHER\n\n\n";
         }
     }
 }
 
-asio::awaitable<void> Worker::run_decryptor_task(std::shared_ptr<server::Unit> unit) {
+asio::awaitable<void> Worker::run_decryptor_task(
+    std::shared_ptr<server::Unit> unit
+) {
     try {
         if (!m_decryptor) {
             throw std::runtime_error("No decryptor");
@@ -130,8 +148,7 @@ asio::awaitable<void> Worker::run_decryptor_task(std::shared_ptr<server::Unit> u
         //           << "\n";
 
         auto st_payload = std::make_unique<json_protocol::StatusPayload>(
-            unit->get_cipher(),
-            result.text_, result.key_, result.score_
+            unit->get_cipher(), result.text_, result.key_, result.score_
         );
         auto res_msg = json_protocol::Message::create_status_request(
             std::move(st_payload)

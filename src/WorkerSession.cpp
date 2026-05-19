@@ -26,10 +26,19 @@ asio::awaitable<void> WorkerSession::send_unit(std::size_t index) {
     auto payload = std::make_unique<json_protocol::DecryptPayload>();
     payload->set_cipher(unit.get_cipher());
     payload->set_noise(unit.get_noise());
-    std::string text = m_server.m_coordinator->get_message()->get_text();
     payload->set_key_length(unit.get_key_length());
     payload->set_mode(unit.get_mode());
-    payload->set_cipher_text(std::vector<uint8_t>(text.begin(), text.end()));
+    // Кэш текста
+    if (!m_text_sent) {
+        std::string text = m_server.m_coordinator->get_message()->get_text();
+        payload->set_cipher_text(std::vector<uint8_t>(text.begin(), text.end()));
+        m_text_sent = true;
+    } else {
+        // Отправляем пустой вектор, воркер использует кэш
+        payload->set_cipher_text({});
+    }
+
+
     if (unit.get_cipher() == decrypt::CipherType::VIGENERE) {
         auto index_to_vigenere_key = [](int index, int length) {
             std::string key(length, 'A');

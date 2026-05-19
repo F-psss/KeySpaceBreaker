@@ -8,7 +8,7 @@
 class Worker {
 public:
     Worker(asio::io_context &io, std::string ip, uint16_t port, const std::string& dict_path)
-        : m_io(io), m_coordinator_ip(std::move(ip)), m_coordinator_port(port), m_dict_path(dict_path) {
+        : m_io(io), m_coordinator_ip(std::move(ip)), m_coordinator_port(port), m_dict_path(dict_path){
     }
 
     void start();
@@ -27,5 +27,7 @@ private:
     uint16_t m_coordinator_port = 12345;
     std::string m_dict_path;
     std::shared_ptr<json_protocol::Connection> m_conn;
+    std::vector<uint8_t> m_cachedCiphertext;
+    bool m_hasCiphertext = false;
 };
 #endif

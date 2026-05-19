@@ -265,7 +265,7 @@ void ClientSession::handle_task_request(const json_protocol::Message &msg) {
             const int total = std::pow(26, key_len);
 
             auto policy = std::make_shared<StaticPolicy>(
-                total, 1000, noise, cipher, mode, key_len
+                total, 100, noise, cipher, mode, key_len
             );
             m_server.set_task(encrypted_msg, policy);
         }
