@@ -10,6 +10,7 @@
 namespace server {
 class CoordinatorServer;
 
+
 // Сессия клиента (один)
 class ClientSession {
 public:
@@ -22,7 +23,7 @@ private:
     CoordinatorServer &m_server;
     decrypt::CipherType m_current_cipher = decrypt::CipherType::UNKNOWN;
     asio::awaitable<void> read_loop();
-    void handle_task_request(const json_protocol::Message &msg);
+    asio::awaitable<void> handle_task_request(const json_protocol::Message &msg);
 };
 
 }  // namespace server

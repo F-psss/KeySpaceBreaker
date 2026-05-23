@@ -110,7 +110,7 @@ app_config::ClientConfig run(int argc, char **argv) {
     auto input_file_opt = input_group->add_option(
         "--input-file", input_file, "Read encrypted data from file"
     );
-    int key_length = 3;
+    int key_length = -1;
     app.add_option("--key-length", key_length, "Key length for Vigenere (default: 3)");
     double noise = 0.1;
 
@@ -155,7 +155,8 @@ app_config::ClientConfig run(int argc, char **argv) {
     config.cipher = cipher;
     config.noise = noise;
     config.mode = mode;
-    if (key_length >= 7 || key_length < 0) {
+    std::cout << "mode = " << bool(mode == decrypt::VigenereMode::FAST) << '\n';
+    if (key_length != -1 && (key_length >= 7 || key_length < 0)) {
         throw std::runtime_error("key-length must be in range 1..6");
     }
     config.key_length = key_length;

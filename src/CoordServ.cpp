@@ -1,15 +1,15 @@
 // CoordinatorServer.cpp
 #include <CoordServ.hpp>
+#include <VigenereEncryptedMessage.hpp>
 #include <asio/co_spawn.hpp>
 #include <cassert>
 #include <iostream>
 #include "Coordinator.hpp"
-#include <VigenereEncryptedMessage.hpp>
+#include "KasiskiAnalyzer.hpp"
 
 namespace server {
 
 // ---------- CoordinatorServer ----------
-
 CoordinatorServer::CoordinatorServer(
     asio::io_context &io,
     short worker_port,
@@ -22,13 +22,16 @@ CoordinatorServer::CoordinatorServer(
     : m_io(io),
       m_id(id),
       m_worker_acceptor(
-          io, asio::ip::tcp::endpoint(asio::ip::tcp::v4(), worker_port)
+          io,
+          asio::ip::tcp::endpoint(asio::ip::tcp::v4(), worker_port)
       ),
       m_client_acceptor(
-          io, asio::ip::tcp::endpoint(asio::ip::tcp::v4(), client_port)
+          io,
+          asio::ip::tcp::endpoint(asio::ip::tcp::v4(), client_port)
       ),
       m_peer_acceptor(
-          io, asio::ip::tcp::endpoint(asio::ip::tcp::v4(), peer_port)
+          io,
+          asio::ip::tcp::endpoint(asio::ip::tcp::v4(), peer_port)
       ),
       m_peer_addresses(std::move(peer_addresses)),
       m_check_timer(io),
@@ -36,12 +39,27 @@ CoordinatorServer::CoordinatorServer(
     start_timeout_checker();
 }
 
+std::string crop_text(const std::string& text) {
+    int counter_words = 0;
+    std::string cropped_text;
+    for (auto c: text) {
+        if (c == ' ') {
+            counter_words++;
+        }
+        cropped_text += c;
+        if (counter_words == 200) {
+            break;
+        }
+    }
+    return cropped_text;
+}
+
+
 void CoordinatorServer::start() {
     asio::co_spawn(m_io, worker_accept_loop(), asio::detached);
     asio::co_spawn(m_io, client_accept_loop(), asio::detached);
     asio::co_spawn(m_io, peer_accept_loop(), asio::detached);
 
-    
     for (const auto &addr : m_peer_addresses) {
         asio::co_spawn(m_io, connect_to_peer(addr), asio::detached);
     }
@@ -87,10 +105,12 @@ asio::awaitable<void> CoordinatorServer::client_accept_loop() {
 asio::awaitable<void> CoordinatorServer::peer_accept_loop() {
     while (true) {
         try {
-            auto socket = co_await m_peer_acceptor.async_accept(asio::use_awaitable);
+            auto socket =
+                co_await m_peer_acceptor.async_accept(asio::use_awaitable);
             std::cout << "Peer connection accepted (incoming)" << std::endl;
 
-            auto session = std::make_shared<PeerSession>(std::move(socket), *this);
+            auto session =
+                std::make_shared<PeerSession>(std::move(socket), *this);
             add_peer(session);
             session->start();
 
@@ -99,7 +119,6 @@ asio::awaitable<void> CoordinatorServer::peer_accept_loop() {
         }
     }
 }
-
 
 asio::awaitable<void> CoordinatorServer::connect_to_peer(std::string address) {
     auto pos = address.find(':');
@@ -118,11 +137,14 @@ asio::awaitable<void> CoordinatorServer::connect_to_peer(std::string address) {
             auto endpoints = co_await resolver.async_resolve(
                 host, port_str, asio::use_awaitable
             );
-            co_await asio::async_connect(socket, endpoints, asio::use_awaitable);
+            co_await asio::async_connect(
+                socket, endpoints, asio::use_awaitable
+            );
 
             std::cout << "Connected to peer " << address << std::endl;
 
-            auto session = std::make_shared<PeerSession>(std::move(socket), *this);
+            auto session =
+                std::make_shared<PeerSession>(std::move(socket), *this);
             add_peer(session);
             session->start();
 
@@ -132,8 +154,8 @@ asio::awaitable<void> CoordinatorServer::connect_to_peer(std::string address) {
 
             co_return;
         } catch (const std::exception &e) {
-            std::cerr << "Failed to connect to peer " << address
-                      << ": " << e.what() << " — retrying in 3s" << std::endl;
+            std::cerr << "Failed to connect to peer " << address << ": "
+                      << e.what() << " — retrying in 3s" << std::endl;
             need_retry = true;
         }
 
@@ -154,7 +176,8 @@ void CoordinatorServer::remove_peer(std::shared_ptr<PeerSession> peer) {
     auto it = std::find(m_peers.begin(), m_peers.end(), peer);
     if (it != m_peers.end()) {
         m_peers.erase(it);
-        std::cout << "Peer disconnected. Remaining: " << m_peers.size() << std::endl;
+        std::cout << "Peer disconnected. Remaining: " << m_peers.size()
+                  << std::endl;
     }
 }
 
@@ -164,8 +187,7 @@ void CoordinatorServer::add_worker(std::shared_ptr<WorkerSession> worker) {
               << std::endl;
     if (m_coordinator && m_coordinator->has_unassigned_units()) {
         asio::co_spawn(
-            m_io.get_executor(),
-            m_coordinator->assign_to_worker(worker),
+            m_io.get_executor(), m_coordinator->assign_to_worker(worker),
             asio::detached
         );
     }
@@ -182,23 +204,27 @@ void CoordinatorServer::remove_worker(std::shared_ptr<WorkerSession> worker) {
 
 void CoordinatorServer::set_task(
     std::shared_ptr<EncryptedMessage> message,
-    std::shared_ptr<Policy> policy
+    std::shared_ptr<Policy> policy,
+    decrypt::VigenereMode mode
 ) {
-
     m_coordinator = std::make_unique<Coordinator>(message, policy);
+    m_coordinator->set_mode(mode);
     // Если есть чекпоинт, то восстанавливаемся из него
-    if (m_coordinator->load_checkpoint(m_checkpoint_path, message->get_text())) {
+    if (m_coordinator->load_checkpoint(
+            m_checkpoint_path, message->get_text()
+        )) {
         m_last_checkpoint_done = m_coordinator->done_units_count();
-        std::cout << "Restored from checkpoint: "
-                  << m_last_checkpoint_done << "/"
-                  << m_coordinator->unit_count() << " units done" << std::endl;
+        std::cout << "Restored from checkpoint: " << m_last_checkpoint_done
+                  << "/" << m_coordinator->unit_count() << " units done"
+                  << std::endl;
     } else {
         m_last_checkpoint_done = 0;
-        std::cout << "New task created. Units: "
-                  << m_coordinator->unit_count() << std::endl;
+        std::cout << "New task created. Units: " << m_coordinator->unit_count()
+                  << std::endl;
     }
 
     // Попытаться назначить юниты доступным воркерам
+    std::cout << "m_workers size = " << m_workers.size() << '\n';
     for (auto &worker : m_workers) {
         asio::co_spawn(
             m_io.get_executor(), m_coordinator->assign_to_worker(worker),
@@ -216,13 +242,15 @@ void CoordinatorServer::send_result_to_client(const Result &result) {
     asio::co_spawn(m_io, m_client->send_final_result(result), asio::detached);
 }
 
-void ClientSession::handle_task_request(const json_protocol::Message &msg) {
+asio::awaitable<void> ClientSession::handle_task_request(
+    const json_protocol::Message &msg
+) {
     if (msg.get_type() == json_protocol::MessageType::REQUEST &&
         msg.get_action() == json_protocol::Action::DECRYPT) {
         auto *payload =
             dynamic_cast<json_protocol::DecryptPayload *>(msg.payload.get());
         if (payload == nullptr) {
-            return;
+            co_return;
         }
 
         std::shared_ptr<EncryptedMessage> encrypted_msg;
@@ -233,22 +261,24 @@ void ClientSession::handle_task_request(const json_protocol::Message &msg) {
             std::string text(cipher_vec.begin(), cipher_vec.end());
             std::cout << "DEBUG: text2 = " << text << std::endl;
             encrypted_msg = std::make_shared<CaesarEncryptedMessage>(text);
-        }else if (payload->get_cipher() == decrypt::CipherType::VIGENERE) {
+        } else if (payload->get_cipher() == decrypt::CipherType::VIGENERE) {
             m_current_cipher = payload->get_cipher();
             auto cipher_vec = payload->get_cipher_text();
             std::string text(cipher_vec.begin(), cipher_vec.end());
+            if (payload->get_mode() == decrypt::VigenereMode::FAST) {
+                text = crop_text(text);
+            }
             encrypted_msg = std::make_shared<VigenereEncryptedMessage>(text);
-        }
-        else {
+        } else {
             std::cerr << "Unsupported cipher" << std::endl;
-            return;
+            co_return;
         }
 
         int start =
             payload->get_start_key().empty() ? 0 : payload->get_start_key()[0];
         int end =
             payload->get_end_key().empty() ? 25 : payload->get_end_key()[0];
-        double noise = payload->get_noise();
+        const double noise = payload->get_noise();
         decrypt::CipherType cipher = payload->get_cipher();
         decrypt::VigenereMode mode = payload->get_mode();
         std::cout << "NOISE FROM CLIENT = " << noise << std::endl;
@@ -257,17 +287,27 @@ void ClientSession::handle_task_request(const json_protocol::Message &msg) {
 
         if (payload->get_cipher() == decrypt::CipherType::CAESAR) {
             // TODO: нужно добавить возможность менять размер юнита
-            auto policy = std::make_shared<StaticPolicy>(26, 5, noise, cipher, mode, 1);
-            m_server.set_task(encrypted_msg, policy);
-        }
-        else if (payload->get_cipher() == decrypt::CipherType::VIGENERE) {
-            const int key_len = payload->get_key_length();
-            const int total = std::pow(26, key_len);
-
-            auto policy = std::make_shared<StaticPolicy>(
-                total, 100, noise, cipher, mode, key_len
+            auto policy =
+                std::make_shared<StaticPolicy>(26, 5, noise, cipher, mode, 1);
+            m_server.set_task(encrypted_msg, policy, mode);
+        } else if (payload->get_cipher() == decrypt::CipherType::VIGENERE) {
+            std::cout << "mode = " << (int)mode << " cipher = " << (int)cipher << std::endl;
+            std::string full_ciphertext(
+                payload->get_cipher_text().begin(),
+                payload->get_cipher_text().end()
             );
-            m_server.set_task(encrypted_msg, policy);
+            int key_len = payload->get_key_length();
+            std::cout << "key_len = " << key_len << '\n';
+            if (key_len < 1 || key_len > 7) {
+                key_len =
+                    KasiskiAnalyzer::guessKeyLength(full_ciphertext, 2, 7);
+            }
+            std::cout << "key_len = " << key_len << '\n';
+            const int total = std::pow(26, key_len);
+            auto policy = std::make_shared<StaticPolicy>(
+                total, 1000, noise, cipher, mode, key_len
+            );
+            m_server.set_task(encrypted_msg, policy, mode);
         }
     }
 }
@@ -326,8 +366,9 @@ void CoordinatorServer::maybe_save_checkpoint() {
         return;
     }
     std::size_t done = m_coordinator->done_units_count();
-    bool should_save = (done - m_last_checkpoint_done >= CHECKPOINT_EVERY_N_UNITS)
-                       || (m_coordinator->all_units_done() && done > m_last_checkpoint_done);
+    bool should_save =
+        (done - m_last_checkpoint_done >= CHECKPOINT_EVERY_N_UNITS) ||
+        (m_coordinator->all_units_done() && done > m_last_checkpoint_done);
     if (should_save) {
         m_coordinator->save_checkpoint(m_checkpoint_path);
         m_last_checkpoint_done = done;

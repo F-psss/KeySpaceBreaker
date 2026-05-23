@@ -1,22 +1,55 @@
 #include "Decryptor.hpp"
 #include <iostream>
 #include <limits>
+#include <algorithm>
 
 namespace server {
-
-const double BruteforceDecryptor::ENGLISH_FREQS[26] = {
+const double PolyAlphabeticDecryptor::ENGLISH_FREQS[26] = {
     0.08167, 0.01492, 0.02782, 0.04253, 0.12702, 0.02228, 0.02015,  // A-G
     0.06094, 0.06966, 0.00153, 0.00772, 0.04025, 0.02406, 0.06749,  // H-N
     0.07507, 0.01929, 0.00095, 0.05987, 0.06327, 0.09056, 0.02758,  // O-U
     0.00978, 0.02360, 0.00150, 0.01974, 0.00074                     // V-Z
 };
+double PolyAlphabeticDecryptor::score_for_key(const std::string& key) {
+    double total = 0;
+    for (int i = 0; i < key.size(); ++i) {
+        int shift = key[i] - 'A';
+        int n = stream_size[i];
+        for (int c = 0; c < 26; ++c) {
+            // после сдвига буква (c - shift + 26) % 26 становится c
+            double observed = streams_freq[i][(c + shift) % 26];
+            double expected = n * ENGLISH_FREQS[c];
+            double diff = observed - expected;
+            total += diff * diff / expected;
+        }
+    }
+    return total;
+}
 
-void BruteforceDecryptor::process_unit(std::shared_ptr<Unit> unit) {
+void PolyAlphabeticDecryptor::process_unit(std::shared_ptr<Unit> unit) {
     if (!m_message) {
         std::cout << "GECNJ\n";
         return;
     }
-
+    if (unit->get_mode() == decrypt::VigenereMode::FAST) {
+        const int key_len = unit->get_key_length();
+        // обнуляем
+        for (int i = 0; i < key_len; ++i) {
+            stream_size[i] = 0;
+            streams_freq[i].fill(0);
+        }
+        // заполняем частоты по потокам
+        std::string text = m_message->get_text();
+        int letter_idx = 0;
+        for (char c : text) {
+            if (std::isalpha(c)) {
+                int pos = letter_idx % key_len;
+                streams_freq[pos][std::tolower(c) - 'a']++;
+                stream_size[pos]++;
+                letter_idx++;
+            }
+        }
+    }
     // std::cout << "Worker starting unit [" << unit->get_start() << ", "
     //           << unit->get_end() << "]" << '\n';
     auto index_to_key = [](int idx, int len) {
@@ -39,33 +72,37 @@ void BruteforceDecryptor::process_unit(std::shared_ptr<Unit> unit) {
         }
         return result;
     };
-    m_noise = unit->get_noise();
+    const double noise = unit->get_noise();
     std::string current_key =
         index_to_key(unit->get_start(), unit->get_key_length());
     for (long long key = unit->get_start(); key <= unit->get_end(); ++key) {
-        std::string candidate_text = m_message->decrypt(current_key);
-        const double freq_score = calculate_score(candidate_text);
-        double score = freq_score;
-        if (m_noise != 0.0) {
-            const double dict_score = m_dict.score(candidate_text);
-            // одновременно учитывается словарь и частотный анализ
-            score = freq_score * (1 - m_noise * m_noise) -
-                    dict_score * m_noise * 100;
+        double score = 0;
+        if (unit->get_mode() == decrypt::VigenereMode::FAST) {
+            score = score_for_key(current_key);
+        } else {
+            std::string candidate_text = m_message->decrypt(current_key);
+            const double freq_score = calculate_score(candidate_text);
+            score = freq_score;
+            if (noise != 0.0) {
+                const double dict_score = m_dict.score(candidate_text);
+                // одновременно учитывается словарь и частотный анализ
+                score = freq_score * (1 - noise * noise) -
+                        dict_score * noise * 100;
+            }
         }
         if (score < m_best_result.score_) {
             m_best_result.score_ = score;
             m_best_result.key_ = current_key;
-            m_best_result.text_ = candidate_text;
         }
         if (key < unit->get_end()) {
             current_key = increment_key(current_key);
         }
     }
-
+    m_best_result.text_ = m_message->decrypt(m_best_result.key_);
     unit->mark_as_done();
 }
 
-double BruteforceDecryptor::calculate_score(const std::string &text) {
+double PolyAlphabeticDecryptor::calculate_score(const std::string &text) {
     long count[26] = {0};
     long total_letters = 0;
 

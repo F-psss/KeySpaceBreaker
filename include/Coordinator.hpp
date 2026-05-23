@@ -13,6 +13,7 @@
 namespace server {
 
 const std::chrono::seconds UNIT_TIMEOUT(10);
+static constexpr double FAST_THRESHOLD = 200.0;
 
 class Coordinator {
 public:
@@ -20,7 +21,8 @@ public:
         std::shared_ptr<EncryptedMessage> message,
         std::shared_ptr<Policy> policy
     );
-    asio::awaitable<void> assign_to_worker(std::shared_ptr<WorkerSession> worker
+    asio::awaitable<void> assign_to_worker(
+        std::shared_ptr<WorkerSession> worker
     );
 
     size_t unit_count() {
@@ -55,9 +57,17 @@ public:
         return m_done_count;
     }
 
-    void save_checkpoint(const std::string& path) const;
-    bool load_checkpoint(const std::string& path, const std::string& current_text);
+    [[nodiscard]] bool is_solved() const {
+        return m_solved;
+    }
 
+    void set_mode(decrypt::VigenereMode mode) {
+        m_mode = mode;
+    }
+
+    void save_checkpoint(const std::string &path) const;
+    bool
+    load_checkpoint(const std::string &path, const std::string &current_text);
 
 private:
     // constructor
@@ -65,7 +75,8 @@ private:
     std::shared_ptr<Policy> m_policy;
     Result m_best_result;
     std::size_t m_done_count = 0;
-
+    bool m_solved = false;
+    decrypt::VigenereMode m_mode = decrypt::VigenereMode::UNKNOWN;
     // gen
     std::vector<Unit> m_units{};
 

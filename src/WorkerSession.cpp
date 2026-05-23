@@ -31,13 +31,14 @@ asio::awaitable<void> WorkerSession::send_unit(std::size_t index) {
     // Кэш текста
     if (!m_text_sent) {
         std::string text = m_server.m_coordinator->get_message()->get_text();
-        payload->set_cipher_text(std::vector<uint8_t>(text.begin(), text.end()));
+        payload->set_cipher_text(
+            std::vector<uint8_t>(text.begin(), text.end())
+        );
         m_text_sent = true;
     } else {
         // Отправляем пустой вектор, воркер использует кэш
         payload->set_cipher_text({});
     }
-
 
     if (unit.get_cipher() == decrypt::CipherType::VIGENERE) {
         auto index_to_vigenere_key = [](int index, int length) {
@@ -48,17 +49,25 @@ asio::awaitable<void> WorkerSession::send_unit(std::size_t index) {
             }
             return key;
         };
-        std::string start_key_str = index_to_vigenere_key(unit.get_start(), unit.get_key_length());
-    std::string end_key_str = index_to_vigenere_key(unit.get_end(), unit.get_key_length());
+        std::string start_key_str =
+            index_to_vigenere_key(unit.get_start(), unit.get_key_length());
+        std::string end_key_str =
+            index_to_vigenere_key(unit.get_end(), unit.get_key_length());
 
-    payload->set_start_key(std::vector<uint8_t>(start_key_str.begin(), start_key_str.end()));
-    payload->set_end_key(std::vector<uint8_t>(end_key_str.begin(), end_key_str.end()));
-} else {
-    payload->set_start_key(std::vector<uint8_t>{
-        static_cast<uint8_t>(unit.get_start())});
-    payload->set_end_key(std::vector<uint8_t>{
-        static_cast<uint8_t>(unit.get_end())});
-}
+        payload->set_start_key(
+            std::vector<uint8_t>(start_key_str.begin(), start_key_str.end())
+        );
+        payload->set_end_key(
+            std::vector<uint8_t>(end_key_str.begin(), end_key_str.end())
+        );
+    } else {
+        payload->set_start_key(
+            std::vector<uint8_t>{static_cast<uint8_t>(unit.get_start())}
+        );
+        payload->set_end_key(
+            std::vector<uint8_t>{static_cast<uint8_t>(unit.get_end())}
+        );
+    }
 
     auto msg =
         json_protocol::Message::create_decrypt_request(std::move(payload));
@@ -87,34 +96,33 @@ void WorkerSession::handle_message(const json_protocol::Message &msg) {
             cand_to_best.text_ = payload->get_cipher_text();
             cand_to_best.score_ = payload->get_score();
             m_server.m_coordinator->cand_to_best(cand_to_best);
-            m_server.m_coordinator->mark_unit_done(m_current_unit_index.value()
+            m_server.m_coordinator->mark_unit_done(
+                m_current_unit_index.value()
             );
             m_current_unit_index = std::nullopt;
+            if (m_server.m_coordinator->all_units_done()) {
+                if (!m_server.is_subtask()) {
+                    std::cout << "All units are done. Sending final result to "
+                                 "client..."
+                              << std::endl;
 
-            // std::cout << "Received result from worker: key="
-            //           << cand_to_best.key_ << " score=" << cand_to_best.score_
-            //           << std::endl;
+                    const auto &best = m_server.m_coordinator->best_result();
 
-            if (m_server.m_coordinator->has_unassigned_units()) {
+                    std::cout << "\nBEST RESULT ON SERVER\n"
+                              << "key   = " << best.key_ << "\n"
+                              << "score = " << best.score_ << "\n"
+                              << "text  = " << best.text_ << "\n";
+
+                    m_server.send_result_to_client(best);
+                }
+            } else if (m_server.m_coordinator->has_unassigned_units()) {
                 asio::co_spawn(
                     m_conn.get_executor(),
-                    m_server.m_coordinator->assign_to_worker(shared_from_this()
+                    m_server.m_coordinator->assign_to_worker(
+                        shared_from_this()
                     ),
                     asio::detached
                 );
-            } else if (m_server.m_coordinator->all_units_done()) {
-                std::cout
-                    << "All units are done. Sending final result to client..."
-                    << std::endl;
-
-                const auto &best = m_server.m_coordinator->best_result();
-
-                std::cout << "\nBEST RESULT ON SERVER\n"
-                          << "key   = " << best.key_ << "\n"
-                          << "score = " << best.score_ << "\n"
-                          << "text  = " << best.text_ << "\n";
-
-                m_server.send_result_to_client(best);
             }
         }
     }

@@ -3,27 +3,38 @@
 #include <map>
 #include <numeric>
 #include <vector>
-static double calculateIndexOfCoincidence(const std::string &text);
+
+static double calculateIndexOfCoincidence(const std::string &text) {
+    if (text.length() < 2) {
+        return 0.0;
+    }
+    int freq[26] = {0};
+    for (char c : text) {
+        freq[std::toupper(c) - 'A']++;
+    }
+    double sum = 0.0;
+    int n = text.length();
+    for (int i = 0; i < 26; ++i) {
+        sum += freq[i] * (freq[i] - 1);
+    }
+    return sum / (n * (n - 1));
+}
 
 int KasiskiAnalyzer::guessKeyLengthByIC(
     const std::string &ciphertext,
     int minLen,
-    int maxLength
+    int maxLen
 ) {
     std::string cleanText;
     for (char c : ciphertext) {
-        if (std::isalpha(c)) {
-            cleanText += std::toupper(c);
-        }
+        if (std::isalpha(c)) cleanText += std::toupper(c);
     }
 
-    // Метод индекса совпадений
     double bestIC = 0.0;
-    int bestLength = 3;
+    int bestLength = minLen;
 
-    for (int len = 2; len <= maxLength; ++len) {
+    for (int len = minLen; len <= maxLen; ++len) {
         double avgIC = 0.0;
-
         for (int i = 0; i < len; ++i) {
             std::string subsequence;
             for (size_t j = i; j < cleanText.size(); j += len) {
@@ -32,7 +43,7 @@ int KasiskiAnalyzer::guessKeyLengthByIC(
             avgIC += calculateIndexOfCoincidence(subsequence);
         }
         avgIC /= len;
-        if (avgIC > bestIC && avgIC > 0.055) {
+        if (avgIC > bestIC) {
             bestIC = avgIC;
             bestLength = len;
         }
@@ -41,84 +52,69 @@ int KasiskiAnalyzer::guessKeyLengthByIC(
     return bestLength;
 }
 
-std::vector<std::string>
-KasiskiAnalyzer::splitByModulo(const std::string &text, int keyLength) {
-    std::vector<std::string> result(keyLength);
-    int letterIndex = 0;
-
-    for (char c : text) {
-        if (std::isalpha(c)) {
-            result[letterIndex % keyLength] += c;
-            letterIndex++;
-        }
-    }
-
-    return result;
-}
-static double calculateIndexOfCoincidence(const std::string &text) {
-    if (text.length() < 2) {
-        return 0.0;
-    }
-
-    int freq[26] = {0};
-    for (char c : text) {
-        freq[std::toupper(c) - 'A']++;
-    }
-
-    double sum = 0.0;
-    int n = text.length();
-    for (int i = 0; i < 26; ++i) {
-        sum += freq[i] * (freq[i] - 1);
-    }
-
-    return sum / (n * (n - 1));
-}
-
 int KasiskiAnalyzer::guessKeyLength(
     const std::string &ciphertext,
     int minLen,
     int maxLen
 ) {
+    maxLen = 10;
     std::string text;
     for (char c : ciphertext) {
-        if (std::isalpha(c)) {
-            text += std::toupper(c);
-        }
+        if (std::isalpha(c)) text += std::toupper(c);
     }
 
-    // Ищем повторяющиеся триграммы
+    // Считаем сколько раз каждый делитель встречается среди расстояний
     std::map<std::string, std::vector<int>> trigramPositions;
-    for (size_t i = 0; i < text.length() - 3; ++i) {
-        std::string trigram = text.substr(i, 3);
-        trigramPositions[trigram].push_back(i);
+    for (size_t i = 0; i + 3 <= text.length(); ++i) {
+        trigramPositions[text.substr(i, 3)].push_back(i);
     }
 
-    // Собираем все расстояния между повторениями
-    std::vector<int> distances;
+    std::map<int, int> divisorCount;
     for (const auto &[trigram, positions] : trigramPositions) {
-        if (positions.size() >= 2) {
-            for (size_t j = 1; j < positions.size(); ++j) {
-                int dist = positions[j] - positions[j - 1];
-                distances.push_back(dist);
+        if (positions.size() < 2) continue;
+        for (size_t j = 1; j < positions.size(); ++j) {
+            int dist = positions[j] - positions[j - 1];
+            for (int d = std::max(minLen, 2); d <= maxLen; ++d) {
+                if (dist % d == 0) {
+                    divisorCount[d]++;
+                }
             }
         }
     }
 
-    // Находим НОД всех расстояний
-    int gcd_all = distances.empty() ? 0 : distances[0];
-    for (int d : distances) {
-        gcd_all = std::gcd(gcd_all, d);
+    if (divisorCount.empty()) {
+        return guessKeyLengthByIC(text, minLen, maxLen);
     }
 
-    // Длина ключа — это наименьший делитель НОД в заданном диапазоне
-    if (gcd_all >= minLen) {
-        for (int len = minLen; len <= maxLen; ++len) {
-            if (gcd_all % len == 0) {
-                return len;
+    // Берём топ-3 кандидата по частоте делителей
+    std::vector<std::pair<int, int>> candidates(
+        divisorCount.begin(), divisorCount.end()
+    );
+    std::sort(candidates.begin(), candidates.end(), [](auto &a, auto &b) {
+        return a.second > b.second;
+    });
+
+    int topN = std::min(3, (int)candidates.size());
+
+    // Среди топ-3 выбираем лучший по IC
+    int bestLen = candidates[0].first;
+    double bestIC = 0.0;
+    for (int i = 0; i < topN; ++i) {
+        int len = candidates[i].first;
+        double ic = 0.0;
+        for (int pos = 0; pos < len; ++pos) {
+            std::string sub;
+            for (size_t j = pos; j < text.size(); j += len) {
+                sub += text[j];
             }
+            ic += calculateIndexOfCoincidence(sub);
+        }
+        ic /= len;
+        if (ic > bestIC) {
+            bestIC = ic;
+            bestLen = len;
         }
     }
 
-    // Если НОД не подходит, используем индекс совпадений как fallback
-    return guessKeyLengthByIC(text, minLen, maxLen);
+    return bestLen;
 }

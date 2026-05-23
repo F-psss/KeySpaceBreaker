@@ -25,6 +25,9 @@ asio::awaitable<void> Coordinator::assign_to_worker(
     std::shared_ptr<WorkerSession> worker
 ) {
     for (int i = 0; i < m_units.size(); i++) {
+        if (m_solved) {
+            co_return;
+        }
         if (m_units[i].get_status() == UnitStatus::Unassigned) {
             m_units[i].mark_as_leased();
             m_pending_units[i] = {worker, std::chrono::steady_clock::now()};
@@ -38,6 +41,9 @@ asio::awaitable<void> Coordinator::assign_to_worker(
 void Coordinator::cand_to_best(const Result &cand) {
     if (cand.score_ < m_best_result.score_) {
         m_best_result = cand;
+        if (m_mode == decrypt::VigenereMode::FAST && m_best_result.score_ < FAST_THRESHOLD) {
+            m_solved = true;
+        }
     }
 }
 
@@ -66,6 +72,9 @@ bool Coordinator::has_unassigned_units() const {
 }
 
 bool Coordinator::all_units_done() const {
+    if (m_solved) {
+        return true;
+    }
     for (const auto &unit : m_units) {
         if (unit.get_status() != UnitStatus::Done) {
             return false;
@@ -77,8 +86,8 @@ bool Coordinator::all_units_done() const {
 void Coordinator::save_checkpoint(const std::string &path) const {
     nlohmann::json j;
     // TODO: мб стоит поменять кэш текста, но пока такой:
-    j["task_id"] = std::to_string(m_message->get_text().size()) + "_" 
-               + m_message->get_text().substr(0, 32);
+    j["task_id"] = std::to_string(m_message->get_text().size()) + "_" +
+                   m_message->get_text().substr(0, 32);
     j["text"] = m_message->get_text();
     j["best_result"] = m_best_result.to_json();
     j["units"] = nlohmann::json::array();
@@ -100,7 +109,10 @@ void Coordinator::save_checkpoint(const std::string &path) const {
     std::rename(tmp_path.c_str(), path.c_str());
 }
 
-bool Coordinator::load_checkpoint(const std::string &path, const std::string& current_text) {
+bool Coordinator::load_checkpoint(
+    const std::string &path,
+    const std::string &current_text
+) {
     std::ifstream in(path);
     if (!in.is_open()) {
         return false;
@@ -110,8 +122,8 @@ bool Coordinator::load_checkpoint(const std::string &path, const std::string& cu
         nlohmann::json j;
         in >> j;
 
-        std::string task_id = std::to_string(current_text.size()) + "_" 
-                            + current_text.substr(0, 32);
+        std::string task_id = std::to_string(current_text.size()) + "_" +
+                              current_text.substr(0, 32);
         if (j["task_id"] != task_id) {
             std::cout << "Checkpoint is for different task, ignoring\n";
             return false;
