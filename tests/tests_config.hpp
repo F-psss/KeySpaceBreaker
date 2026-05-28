@@ -1,0 +1,21 @@
+#ifndef DECRYPTOR_TESTS_CONFIG_HPP
+#define DECRYPTOR_TESTS_CONFIG_HPP
+
+// Простые тесты — Caesar
+#define DECRYPTOR_TEST_CAESAR_BASIC
+#define DECRYPTOR_TEST_CAESAR_DIFFERENT_SHIFTS
+
+// Vigenere
+#define DECRYPTOR_TEST_VIGENERE_BRUTE
+#define DECRYPTOR_TEST_VIGENERE_FAST
+
+// Распределённость
+#define DECRYPTOR_TEST_MULTIPLE_WORKERS
+#define DECRYPTOR_TEST_WORKER_JOINS_LATE
+//TODO: ещё вариации для воркеров
+
+// Отказоустойчивость
+// #define DECRYPTOR_TEST_WORKER_DIES  // включить когда будет отлажено
+// #define DECRYPTOR_TEST_CHECKPOINT_RESTORE
+
+#endif  // DECRYPTOR_TESTS_CONFIG_HPP
