@@ -39,21 +39,20 @@ CoordinatorServer::CoordinatorServer(
     start_timeout_checker();
 }
 
-std::string crop_text(const std::string& text) {
-    int counter_words = 0;
+std::string crop_text(const std::string &text) {
+    int counter_chars = 0;
     std::string cropped_text;
-    for (auto c: text) {
-        if (c == ' ') {
-            counter_words++;
-        }
+    for (auto c : text) {
         cropped_text += c;
-        if (counter_words == 200) {
-            break;
+        if (std::isalpha(c)) {
+            counter_chars++;
+            if (counter_chars == 1000) {
+                break;
+            }
         }
     }
     return cropped_text;
 }
-
 
 void CoordinatorServer::start() {
     asio::co_spawn(m_io, worker_accept_loop(), asio::detached);
@@ -291,7 +290,6 @@ asio::awaitable<void> ClientSession::handle_task_request(
                 std::make_shared<StaticPolicy>(26, 5, noise, cipher, mode, 1);
             m_server.set_task(encrypted_msg, policy, mode);
         } else if (payload->get_cipher() == decrypt::CipherType::VIGENERE) {
-            std::cout << "mode = " << (int)mode << " cipher = " << (int)cipher << std::endl;
             std::string full_ciphertext(
                 payload->get_cipher_text().begin(),
                 payload->get_cipher_text().end()
@@ -305,8 +303,13 @@ asio::awaitable<void> ClientSession::handle_task_request(
             std::cout << "key_len = " << key_len << '\n';
             const int total = std::pow(26, key_len);
             auto policy = std::make_shared<StaticPolicy>(
-                total, 1000, noise, cipher, mode, key_len
+                total, 10000, noise, cipher, mode, key_len
             );
+            if (payload->get_mode() == decrypt::VigenereMode::FAST) {
+                policy = std::make_shared<StaticPolicy>(
+                    total, 10000, noise, cipher, mode, key_len
+                );
+            }
             m_server.set_task(encrypted_msg, policy, mode);
         }
     }

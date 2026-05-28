@@ -4,6 +4,7 @@
 #include <memory>
 #include <string>
 #include "JSON_Protocol.hpp"
+#include "fstream"
 
 asio::awaitable<void> run_client(const app_config::ClientConfig &cfg) {
     try {
@@ -77,6 +78,17 @@ asio::awaitable<void> run_client(const app_config::ClientConfig &cfg) {
                               << total_seconds_double << "s\n";
                 }
                 std::cout << "=======================\n";
+                if (!cfg.output_file.empty()) {
+                    std::ofstream out(cfg.output_file);
+                    if (out.is_open()) {
+                        out << "Text:  " << payload->get_cipher_text() << "\n";
+                        out << "Key:   " << payload->get_key() << "\n";
+                        out << "Score: " << payload->get_score() << "\n";
+                        std::cout << "Result saved to " << cfg.output_file << "\n";
+                    } else {
+                        std::cerr << "Cannot open output file: " << cfg.output_file << "\n";
+                    }
+                }
             } else {
                 std::cout << "Server responded:\n"
                           << response.to_json().dump(4) << std::endl;
