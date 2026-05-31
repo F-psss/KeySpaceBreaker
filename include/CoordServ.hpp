@@ -108,10 +108,11 @@ private:
     asio::steady_timer m_primary_watch_timer;
     std::chrono::steady_clock::time_point m_last_primary_ping;
     bool m_primary_alive = false;
+    bool m_grace_expired = false;
 
     static constexpr int HEARTBEAT_INTERVAL_SEC = 2;
     static constexpr int HEARTBEAT_TIMEOUT_SEC = 10;
-    static constexpr int INITIAL_ROLE_GRACE_SEC = 2;
+    static constexpr int INITIAL_ROLE_GRACE_SEC = 15;
 
     void start_heartbeat_sender();
     void start_primary_watcher();

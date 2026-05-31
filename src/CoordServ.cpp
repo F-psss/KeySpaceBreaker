@@ -70,12 +70,19 @@ void CoordinatorServer::start() {
     start_heartbeat_sender();
     start_primary_watcher();
 
-    m_initial_role_timer.expires_after(std::chrono::seconds(INITIAL_ROLE_GRACE_SEC));
-    m_initial_role_timer.async_wait([this](std::error_code ec) {
-        if (!ec) {
-            recompute_role();
-        }
-    });
+    if (m_peer_addresses.empty()) {
+        // Одиночный запуск — ждать некого, сразу определяем роль
+        m_grace_expired = true;
+        recompute_role();}
+    else{
+        m_initial_role_timer.expires_after(std::chrono::seconds(INITIAL_ROLE_GRACE_SEC));
+        m_initial_role_timer.async_wait([this](std::error_code ec) {
+            if (!ec) {
+                m_grace_expired = true;
+                recompute_role();
+            }
+        });
+    }
 }
 
 asio::awaitable<void> CoordinatorServer::worker_accept_loop() {
@@ -454,14 +461,20 @@ void CoordinatorServer::recompute_role() {
 
     bool exists_primary_peer = false;
     int min_alive_id = m_id;
+    int known_peers = 0;
 
     for (auto &p : m_peers) {
         if (!p->peer_id().has_value()) continue;
+        known_peers++;
         int pid = p->peer_id().value();
         min_alive_id = std::min(min_alive_id, pid);
         if (p->peer_role() == 0) {
             exists_primary_peer = true;
         }
+    }
+    if (!m_grace_expired &&
+        known_peers < static_cast<int>(m_peer_addresses.size())) {
+        return;
     }
 
     if (!exists_primary_peer && m_id == min_alive_id) {
@@ -643,7 +656,7 @@ void CoordinatorServer::on_peer_alive(int from_id) {
 }
 
 void CoordinatorServer::on_peer_coordinator(int from_id) {
-    std::cout << "[Election] received COORDINATOR from id=" << from_id << std::endl;
+    std::cout << "received COORDINATOR from id=" << from_id << std::endl;
 
     // Конфликт: мы Primary и пришёл COORDINATOR от узла с БОЛЬШИМ ID
     if (m_role == Role::Primary && from_id > m_id) {
