@@ -35,7 +35,12 @@ CoordinatorServer::CoordinatorServer(
       ),
       m_peer_addresses(std::move(peer_addresses)),
       m_check_timer(io),
-      m_checkpoint_path(std::move(checkpoint_path)) {
+      m_checkpoint_path(std::move(checkpoint_path)),
+      m_heartbeat_timer(io),
+      m_initial_role_timer(io),
+      m_primary_watch_timer(io),
+      m_last_primary_ping(std::chrono::steady_clock::now()),
+      m_election_timer(io) {
     start_timeout_checker();
 }
 
@@ -62,6 +67,15 @@ void CoordinatorServer::start() {
     for (const auto &addr : m_peer_addresses) {
         asio::co_spawn(m_io, connect_to_peer(addr), asio::detached);
     }
+    start_heartbeat_sender();
+    start_primary_watcher();
+
+    m_initial_role_timer.expires_after(std::chrono::seconds(INITIAL_ROLE_GRACE_SEC));
+    m_initial_role_timer.async_wait([this](std::error_code ec) {
+        if (!ec) {
+            recompute_role();
+        }
+    });
 }
 
 asio::awaitable<void> CoordinatorServer::worker_accept_loop() {
@@ -109,7 +123,7 @@ asio::awaitable<void> CoordinatorServer::peer_accept_loop() {
             std::cout << "Peer connection accepted (incoming)" << std::endl;
 
             auto session =
-                std::make_shared<PeerSession>(std::move(socket), *this);
+                std::make_shared<PeerSession>(std::move(socket), *this, false);
             add_peer(session);
             session->start();
 
@@ -143,12 +157,13 @@ asio::awaitable<void> CoordinatorServer::connect_to_peer(std::string address) {
             std::cout << "Connected to peer " << address << std::endl;
 
             auto session =
-                std::make_shared<PeerSession>(std::move(socket), *this);
+                std::make_shared<PeerSession>(std::move(socket), *this, true);
             add_peer(session);
             session->start();
 
             co_await session->send_hello(
-                m_id, json_protocol::MessageType::REQUEST
+                m_id, (m_role == Role::Primary) ? 0 : 1,
+                json_protocol::MessageType::REQUEST
             );
 
             co_return;
@@ -378,6 +393,284 @@ void CoordinatorServer::maybe_save_checkpoint() {
         std::cout << "Checkpoint saved at " << done << "/"
                   << m_coordinator->unit_count() << " done units" << std::endl;
     }
+}
+
+void CoordinatorServer::on_peer_hello(std::shared_ptr<PeerSession> peer) {
+    if (!peer->peer_id().has_value()) {
+        return;
+    }
+
+    int pid = peer->peer_id().value();
+    int prole = peer->peer_role();
+
+    
+
+    for (auto &other : m_peers) {
+        if (other == peer) {
+            continue;
+        }
+        if (!other->peer_id().has_value()) {
+            continue;
+        }
+        if (other->peer_id().value() != pid) {
+            continue;
+        }
+
+        int initiator_of_peer = peer->is_initiator() ? m_id : pid;
+        int initiator_of_other = other->is_initiator() ? m_id : pid;
+
+        if (initiator_of_peer < initiator_of_other) {
+            other->close_intentionally();
+            remove_peer(other);
+        } else {
+            peer->close_intentionally();
+            remove_peer(peer);
+        }
+        break;
+    }
+
+    if (!peer->is_open()) {
+        return;
+    }
+
+    if (prole == 0 && m_role == Role::Primary) {
+        if (pid < m_id) {
+            m_role = Role::Backup;
+            m_primary_alive = true;
+            m_last_primary_ping = std::chrono::steady_clock::now();
+        } else {
+            asio::co_spawn(m_io, announce_coordinator(), asio::detached);
+        }
+        return;
+    }
+
+    recompute_role();
+}
+
+void CoordinatorServer::recompute_role() {
+    if (m_role == Role::Primary) {
+        return;
+    }
+
+    bool exists_primary_peer = false;
+    int min_alive_id = m_id;
+
+    for (auto &p : m_peers) {
+        if (!p->peer_id().has_value()) continue;
+        int pid = p->peer_id().value();
+        min_alive_id = std::min(min_alive_id, pid);
+        if (p->peer_role() == 0) {
+            exists_primary_peer = true;
+        }
+    }
+
+    if (!exists_primary_peer && m_id == min_alive_id) {
+        m_role = Role::Primary;
+        m_primary_alive = true;
+        std::cout << "Role changed to PRIMARY" << std::endl;
+        asio::co_spawn(m_io, announce_coordinator(), asio::detached);
+        // TODO: открыть/закрыть worker и client акцепторы в зависимости от роли
+    }
+}
+
+void CoordinatorServer::start_heartbeat_sender() {
+    m_heartbeat_timer.expires_after(std::chrono::seconds(HEARTBEAT_INTERVAL_SEC)
+    );
+    m_heartbeat_timer.async_wait([this](std::error_code ec) {
+
+        if (ec) {
+            return;
+        }
+        if (m_role == Role::Primary) {
+            asio::co_spawn(m_io, send_ping_to_backups(), asio::detached);
+        }
+        start_heartbeat_sender();
+    });
+}
+
+asio::awaitable<void> CoordinatorServer::send_ping_to_backups() {
+    auto peers_copy = m_peers;
+    for (auto &peer : peers_copy) {
+        if (!peer->is_open()) {
+            continue;
+        }
+        auto payload = std::make_unique<json_protocol::PingPayload>();
+        auto msg = json_protocol::Message::create_peer_ping(std::move(payload));
+        co_await peer->send_raw(msg);
+    }
+    co_return;
+}
+
+void CoordinatorServer::on_primary_ping() {
+    m_last_primary_ping = std::chrono::steady_clock::now();
+    if (!m_primary_alive) {
+        m_primary_alive = true;
+        std::cout << "Primary heartbeat detected" << std::endl;
+    }
+}
+
+void CoordinatorServer::start_primary_watcher() {
+    m_primary_watch_timer.expires_after(std::chrono::seconds(1));
+    m_primary_watch_timer.async_wait([this](std::error_code ec) {
+        if (ec) {
+            return;
+        }
+        if (m_role == Role::Backup) {
+            auto now = std::chrono::steady_clock::now();
+            auto silence = std::chrono::duration_cast<std::chrono::seconds>(
+                               now - m_last_primary_ping
+            )
+                               .count();
+            if (m_primary_alive && silence > HEARTBEAT_TIMEOUT_SEC) {
+                m_primary_alive = false;
+                on_primary_dead();
+            }
+        }
+        start_primary_watcher();
+    });
+}
+
+void CoordinatorServer::on_peer_disconnected(std::shared_ptr<PeerSession> peer) {
+    int pid = peer->peer_id().value_or(-1);
+    int prole = peer->peer_role();
+
+    std::cout << "Peer " << pid << " disconnected (role="
+              << (prole == 0 ? "Primary" : "Backup") << ")" << std::endl;
+
+    remove_peer(peer);
+
+    if (prole == 0 && m_role == Role::Backup && m_primary_alive) {
+        m_primary_alive = false;
+        std::cout << "⚠️  Primary connection lost" << std::endl;
+        on_primary_dead();
+    }
+}
+
+void CoordinatorServer::on_primary_dead() {
+    std::cout << "⚠️  Primary is DEAD — starting election" << std::endl;
+    start_election();
+}
+
+void CoordinatorServer::start_election() {
+    if (m_election_in_progress) {
+        return;
+    }
+    m_election_in_progress = true;
+    m_received_alive = false;
+    std::cout << "[Election] starting (by id=" << m_id << ")" << std::endl;
+
+    
+    asio::co_spawn(m_io, send_election_to_lower_ids(), asio::detached);
+
+    // waiting for ALIVE
+    m_election_timer.expires_after(std::chrono::seconds(ELECTION_TIMEOUT_SEC));
+    m_election_timer.async_wait([this](std::error_code ec) {
+        if (ec) return;
+        if (!m_election_in_progress) return;
+
+        if (m_received_alive) {
+            
+            std::cout << "[Election] received ALIVE — stepping back" << std::endl;
+            m_election_in_progress = false;
+        } else {
+            
+            std::cout << "[Election] no ALIVE received id=" << m_id << " the new PRIMARY"
+                      << std::endl;
+            m_election_in_progress = false;
+            m_role = Role::Primary;
+            m_primary_alive = true;
+            asio::co_spawn(m_io, announce_coordinator(), asio::detached);
+        }
+    });
+}
+
+asio::awaitable<void> CoordinatorServer::send_election_to_lower_ids() {
+    auto peers_copy = m_peers;
+    for (auto &peer : peers_copy) {
+        if (!peer->is_open()) continue;
+        auto pid_opt = peer->peer_id();
+        if (!pid_opt.has_value()) continue;
+        if (pid_opt.value() >= m_id) continue;
+
+        auto payload = std::make_unique<json_protocol::PeerIdPayload>(m_id);
+        auto msg = json_protocol::Message::create_peer_election(std::move(payload));
+        co_await peer->send_raw(msg);
+    }
+    co_return;
+}
+
+asio::awaitable<void> CoordinatorServer::announce_coordinator() {
+    auto peers_copy = m_peers;
+    for (auto &peer : peers_copy) {
+        if (!peer->is_open()) continue;
+        auto payload = std::make_unique<json_protocol::PeerIdPayload>(m_id);
+        auto msg = json_protocol::Message::create_peer_coordinator(std::move(payload));
+        co_await peer->send_raw(msg);
+    }
+    co_return;
+}
+
+asio::awaitable<void> CoordinatorServer::send_alive_to(int target_id) {
+    for (auto &peer : m_peers) {
+        if (!peer->is_open()) continue;
+        if (peer->peer_id().value_or(-1) != target_id) continue;
+
+        auto payload = std::make_unique<json_protocol::PeerIdPayload>(m_id);
+        auto msg = json_protocol::Message::create_peer_alive(std::move(payload));
+        co_await peer->send_raw(msg);
+        co_return;
+    }
+}
+
+void CoordinatorServer::on_peer_election(int from_id) {
+    std::cout << "[Election] received ELECTION from id=" << from_id << std::endl;
+
+    // Если from_id > нашего — отвечаем ALIVE и сами запускаем выборы
+    if (from_id > m_id) {
+        asio::co_spawn(m_io, send_alive_to(from_id), asio::detached);
+        if (!m_election_in_progress) {
+            start_election();
+        }
+    }
+    // Если from_id < нашего — игнорируем (вообще не должны были получить, но на всякий)
+}
+
+void CoordinatorServer::on_peer_alive(int from_id) {
+    std::cout << "[Election] received ALIVE from id=" << from_id << std::endl;
+    if (m_election_in_progress) {
+        m_received_alive = true;
+    }
+}
+
+void CoordinatorServer::on_peer_coordinator(int from_id) {
+    std::cout << "[Election] received COORDINATOR from id=" << from_id << std::endl;
+
+    // Конфликт: мы Primary и пришёл COORDINATOR от узла с БОЛЬШИМ ID
+    if (m_role == Role::Primary && from_id > m_id) {
+        std::cout << "[Election] conflict: I have smaller ID, asserting myself"
+                  << std::endl;
+        asio::co_spawn(m_io, announce_coordinator(), asio::detached);
+        return;
+    }
+
+    // Принимаем нового primary
+    for (auto &peer : m_peers) {
+        if (peer->peer_id().value_or(-1) == from_id) {
+            peer->set_peer_role(0);  // Primary
+        } else if (peer->peer_role() == 0) {
+            peer->set_peer_role(1);  // был Primary — теперь Backup
+        }
+    }
+
+    if (m_role == Role::Primary) {
+        std::cout << "Role changed to BACKUP (yielded to id=" << from_id << ")"
+                  << std::endl;
+    }
+    m_role = Role::Backup;
+    m_election_in_progress = false;
+    m_received_alive = false;
+    m_primary_alive = false; // ждём первого пинга, только тогда будет true
+    m_last_primary_ping = std::chrono::steady_clock::now();
 }
 
 }  // namespace server

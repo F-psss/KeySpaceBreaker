@@ -22,8 +22,18 @@ int main(int argc, char** argv) {
         server.start();
 
         std::cout << "Coordinator started\n";
+        std::cout << "ID:           " << cfg.id << "\n";
         std::cout << "Worker port:  " << cfg.worker_port << "\n";
         std::cout << "Client port:  " << cfg.client_port << "\n";
+        std::cout << "Peer port:    " << cfg.peer_port << "\n";
+        if (!cfg.peer_addresses.empty()) {
+            std::cout << "Peers:        ";
+            for (const auto &addr : cfg.peer_addresses) {
+                std::cout << addr << " ";
+            }
+            std::cout << "\n";
+        }
+        std::cout << "Checkpoint:   " << cfg.checkpoint_path << "\n";
 
         io.run();
 

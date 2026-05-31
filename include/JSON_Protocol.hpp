@@ -207,6 +207,11 @@ public:
     static Message create_pong_response(std::unique_ptr<Payload>);
     static Message create_peer_hello_request(std::unique_ptr<Payload>);
     static Message create_peer_hello_response(std::unique_ptr<Payload>);
+    static Message create_peer_ping(std::unique_ptr<Payload>);
+    static Message create_peer_election(std::unique_ptr<Payload>);
+    static Message create_peer_alive(std::unique_ptr<Payload>);
+    static Message create_peer_coordinator(std::unique_ptr<Payload>);
+
     std::unique_ptr<Payload> payload;
 
 private:
@@ -244,7 +249,7 @@ private:
 class HelloPayload final : public Payload {
 public:
     HelloPayload() = default;
-    explicit HelloPayload(int peer_id) : m_peer_id(peer_id) {}
+    explicit HelloPayload(int peer_id, int role) : m_peer_id(peer_id), m_role(role) {}
 
     [[nodiscard]] json to_json() const final;
     [[nodiscard]] std::unique_ptr<Payload> from_json(const json &) const final;
@@ -253,9 +258,29 @@ public:
         return m_peer_id;
     }
 
+    [[nodiscard]] int get_role() const { return m_role; }
+
     void set_peer_id(int peer_id) {
         m_peer_id = peer_id;
     }
+
+    void set_role(int role) { m_role = role; }
+
+private:
+    int m_peer_id = 0;
+    int m_role = 1; // 0 = Primary, 1 = Backup
+};
+
+class PeerIdPayload final : public Payload {
+public:
+    PeerIdPayload() = default;
+    explicit PeerIdPayload(int peer_id) : m_peer_id(peer_id) {}
+
+    [[nodiscard]] json to_json() const final;
+    [[nodiscard]] std::unique_ptr<Payload> from_json(const json &) const final;
+
+    [[nodiscard]] int get_peer_id() const { return m_peer_id; }
+    void set_peer_id(int peer_id) { m_peer_id = peer_id; }
 
 private:
     int m_peer_id = 0;
