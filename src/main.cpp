@@ -101,18 +101,19 @@ app_config::ClientConfig run(int argc, char **argv) {
     //
     std::string input_text;
     std::string input_file;
+    std::string output_file;
 
     auto input_group = app.add_option_group("Input options");
 
     auto input_opt =
         input_group->add_option("--input", input_text, "Encrypted text");
-
     auto input_file_opt = input_group->add_option(
         "--input-file", input_file, "Read encrypted data from file"
     );
+    auto output_file_opt = input_group->add_option("--output-file", output_file, "Path to output file (optional)");
     int key_length = -1;
     app.add_option("--key-length", key_length, "Key length for Vigenere (default: 3)");
-    double noise = 0.1;
+    double noise = 0.5;
 
     app.add_option("--noise", noise, "Noise level (0..1)");
 

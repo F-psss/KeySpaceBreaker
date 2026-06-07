@@ -15,6 +15,8 @@
 
 namespace server {
 
+enum class Role { Primary, Backup };
+
 class CoordinatorServer {
     friend class WorkerSession;
     friend class PeerSession;
@@ -50,15 +52,20 @@ public:
         std::shared_ptr<EncryptedMessage> message,
         std::shared_ptr<Policy> policy
     );
+    
+    int get_id() const { return m_id; }
+    Role get_role() const { return m_role; }
 
-    int get_id() const {
-        return m_id;
-    }
+    void on_peer_hello(std::shared_ptr<PeerSession> peer);
+
 
 private:
     asio::io_context &m_io;
     int m_id;
     bool m_is_subtask = false;
+
+    Role m_role = Role::Backup;
+    void recompute_role();
 
     asio::ip::tcp::acceptor m_worker_acceptor;
     asio::ip::tcp::acceptor m_client_acceptor;
@@ -86,10 +93,51 @@ private:
     void check_timeouts();
     void handle_timeout(int unit_index);
 
+    
+    
     std::string m_checkpoint_path;
     std::size_t m_last_checkpoint_done = 0;
     static constexpr std::size_t CHECKPOINT_EVERY_N_UNITS = 5;
     void maybe_save_checkpoint();
+
+
+    // --- Heartbeat ---
+    asio::steady_timer m_heartbeat_timer;
+    asio::steady_timer m_initial_role_timer;
+
+    asio::steady_timer m_primary_watch_timer;
+    std::chrono::steady_clock::time_point m_last_primary_ping;
+    bool m_primary_alive = false;
+    bool m_grace_expired = false;
+
+    static constexpr int HEARTBEAT_INTERVAL_SEC = 2;
+    static constexpr int HEARTBEAT_TIMEOUT_SEC = 10;
+    static constexpr int INITIAL_ROLE_GRACE_SEC = 15;
+
+    void start_heartbeat_sender();
+    void start_primary_watcher();
+    asio::awaitable<void> send_ping_to_backups();
+    void on_primary_ping();
+    void on_peer_disconnected(std::shared_ptr<PeerSession> peer);
+    void on_primary_dead();
+
+    // --- Election ---
+    bool m_election_in_progress = false;
+    bool m_received_alive = false;
+    asio::steady_timer m_election_timer;
+
+    static constexpr int ELECTION_TIMEOUT_SEC = 3;
+
+
+    void start_election();
+    asio::awaitable<void> send_election_to_lower_ids();
+    asio::awaitable<void> announce_coordinator();
+    void on_peer_election(int from_id);
+    void on_peer_alive(int from_id);
+    void on_peer_coordinator(int from_id);
+
+    asio::awaitable<void> send_alive_to(int target_id);
+
 };
 
 }  // namespace server

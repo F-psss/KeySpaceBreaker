@@ -225,13 +225,29 @@ namespace json_protocol {
 }
 
 json HelloPayload::to_json() const {
-    return json{
-        {"peer_id", m_peer_id}
+    json j = {
+        {"peer_id", m_peer_id},
+        {"role", m_role}
     };
+    return j;
 }
 
 std::unique_ptr<Payload> HelloPayload::from_json(const json &j) const {
     auto p = std::make_unique<HelloPayload>();
+    p->m_peer_id = j.at("peer_id").get<int>();
+    p->m_role = j.value("role", 1);
+    return p;
+}
+
+json PeerIdPayload::to_json() const {
+    json j = {
+        {"peer_id", m_peer_id},
+    };
+    return j;
+}
+
+std::unique_ptr<Payload> PeerIdPayload::from_json(const json &j) const {
+    auto p = std::make_unique<PeerIdPayload>();
     p->m_peer_id = j.at("peer_id").get<int>();
     return p;
 }
@@ -253,14 +269,23 @@ Message Message::from_json(const json &j) {
         case Action::QUIT:
             msg.payload = QuitPayload().from_json(j["payload"]);
             break;
-        case Action::PEER_HELLO: {
+        case Action::PEER_HELLO:
             msg.payload = HelloPayload().from_json(j.at("payload"));
             break;
-        }
+
         case Action::PEER_PING:
+            msg.payload = PingPayload().from_json(j["payload"]);
+            break;
+            
         case Action::PEER_ELECTION:
+            msg.payload = PeerIdPayload().from_json(j["payload"]);
+            break;
         case Action::PEER_ALIVE:
+            msg.payload = PeerIdPayload().from_json(j["payload"]);
+            break;
         case Action::PEER_COORDINATOR:
+            msg.payload = PeerIdPayload().from_json(j["payload"]);
+            break;
         case Action::PEER_CHECKPOINT:
             // TODO: реализовать далее
             break;
@@ -302,6 +327,23 @@ Message Message::create_peer_hello_request(std::unique_ptr<Payload> payload) {
 Message Message::create_peer_hello_response(std::unique_ptr<Payload> payload) {
     return {MessageType::RESPONSE, Action::PEER_HELLO, std::move(payload)};
 }
+
+Message Message::create_peer_ping(std::unique_ptr<Payload> payload) {
+    return {MessageType::REQUEST, Action::PEER_PING, std::move(payload)};
+}
+
+Message Message::create_peer_election(std::unique_ptr<Payload> payload) {
+    return {MessageType::REQUEST, Action::PEER_ELECTION, std::move(payload)};
+}
+
+Message Message::create_peer_alive(std::unique_ptr<Payload> payload) {
+    return {MessageType::RESPONSE, Action::PEER_ALIVE, std::move(payload)};
+}
+
+Message Message::create_peer_coordinator(std::unique_ptr<Payload> payload) {
+    return {MessageType::REQUEST, Action::PEER_COORDINATOR, std::move(payload)};
+}
+
 
 asio::awaitable<void> Connection::send_message(const Message &msg) {
     std::string json_str = msg.to_json().dump();

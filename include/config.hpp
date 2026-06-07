@@ -12,10 +12,11 @@ struct ClientConfig {
     std::string coordinator_host;
     int coordinator_port;
     decrypt::CipherType cipher;
-    double noise;
     decrypt::VigenereMode mode;
     int key_length;
+    double noise;
     std::vector<uint8_t> encrypted_data;
+    std::string output_file;
 };
 
 struct CoordinatorConfig {
