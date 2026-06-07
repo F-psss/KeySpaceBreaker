@@ -113,7 +113,7 @@ app_config::ClientConfig run(int argc, char **argv) {
     auto output_file_opt = input_group->add_option("--output-file", output_file, "Path to output file (optional)");
     int key_length = -1;
     app.add_option("--key-length", key_length, "Key length for Vigenere (default: 3)");
-    double noise = 0.1;
+    double noise = 0.5;
 
     app.add_option("--noise", noise, "Noise level (0..1)");
 

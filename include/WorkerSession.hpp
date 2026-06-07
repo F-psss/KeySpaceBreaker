@@ -23,6 +23,10 @@ public:
         return m_current_unit_index == std::nullopt;
     }
 
+    void reset_text_cache() {
+        m_text_sent = false;
+    }
+
 private:
     json_protocol::Connection m_conn;
     CoordinatorServer &m_server;

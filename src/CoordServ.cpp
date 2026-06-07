@@ -247,6 +247,7 @@ void CoordinatorServer::set_task(
     // Попытаться назначить юниты доступным воркерам
     std::cout << "m_workers size = " << m_workers.size() << '\n';
     for (auto &worker : m_workers) {
+        worker->reset_text_cache();
         asio::co_spawn(
             m_io.get_executor(), m_coordinator->assign_to_worker(worker),
             asio::detached
