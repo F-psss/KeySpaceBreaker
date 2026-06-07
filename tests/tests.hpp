@@ -277,7 +277,7 @@ public:
     static CommandResult run_caesar(
         const std::string& server,
         const std::string& ciphertext,
-        double noise = 0.0
+        double noise = 0.5
     ) {
         return run({
             "--cipher", "caesar",

@@ -21,16 +21,16 @@ TEST(caesar, basic_decrypt) {
     //TODO: переделать текст
     // "THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG THE QUICK BROWN FOX" + shift 3
     const std::string ciphertext =
-        "WKH TXLFN EURZQ IRA MXPSV RYHU WKH ODCB GRJ WKH TXLFN EURZQ IRA";
+        "wkh txlfn eurzq ira mxpsv ryhu wkh odcb grj wkh txlfn eurzq ira";
     const std::string expected =
-        "THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG THE QUICK BROWN FOX";
+        "the quick brown fox jumps over the lazy dog the quick brown fox";
 
     auto result = Client::run_caesar(coord.client_address(), ciphertext);
     ASSERT_EQ(result.code, 0) << result.err;
 
     auto parsed = parse_client_output(result.out);
     EXPECT_EQ(parsed.text, expected);
-    EXPECT_EQ(parsed.key, "3");
+    EXPECT_EQ(parsed.key, "D");
 }
 
 #endif  // DECRYPTOR_TEST_CAESAR_BASIC
@@ -50,12 +50,14 @@ TEST(caesar, different_shifts) {
     };
 
     std::vector<TestCase> cases = {
+        //shift 0
+        {"After assuming control of government and pardoning many of his enemies, Caesar carried out various reforms and public works", "A"},
         // shift 1
-        {"UIF RVJDL CSPXO GPY KVNQT PWFS UIF MBAZ EPH", "1"},
+        {"bgufs bttvnjoh dpouspm pg hpwfsonfou boe qbsepojoh nboz pg ijt fofnjft, dbftbs dbssjfe pvu wbsjpvt sfgpsnt boe qvcmjd xpslt", "B"},
         // shift 13 (ROT13)
-        {"GUR DHVPX OEBJA SBK WHZCF BIRE GUR YNML QBT", "13"},
+        {"nsgre nffhzvat pbageby bs tbireazrag naq cneqbavat znal bs uvf rarzvrf, pnrfne pneevrq bhg inevbhf ersbezf naq choyvp jbexf", "N"},
         // shift 25
-        {"SGD PTHBJ AQNVM ENW ITLOR NUDQ SGD KZYX CNF", "25"}
+        {"zesdq zrrtlhmf bnmsqnk ne fnudqmldms zmc ozqcnmhmf lzmx ne ghr dmdlhdr, bzdrzq bzqqhdc nts uzqhntr qdenqlr zmc otakhb vnqjr", "Z"}
     };
 
     for (const auto& tc : cases) {
@@ -79,7 +81,7 @@ TEST(vigenere, brute_key_length_3) {
     // "HELLO WORLD THIS IS A TEST OF VIGENERE CIPHER WITH KEY ABC"
     // c ключом "ABC"
     const std::string ciphertext =
-        "HFNLP YOSLE TKJS JT B VFSU OG XJHFOFSF DKQIES YJTI LFY ACC";
+        "hfnlp yosnd ujit ks b vetv og xihgnfte dkpigr xkti mez cbd";
 
     auto result = Client::run_vigenere(
         coord.client_address(), ciphertext, "brute", 3
@@ -141,7 +143,7 @@ TEST(distributed, multiple_workers_same_result) {
     ASSERT_EQ(result.code, 0) << result.err;
 
     auto parsed = parse_client_output(result.out);
-    EXPECT_EQ(parsed.key, "3");
+    EXPECT_EQ(parsed.key, "D");
 
     EXPECT_TRUE(w1.alive());
     EXPECT_TRUE(w2.alive());
@@ -179,7 +181,7 @@ TEST(distributed, worker_joins_after_start) {
 
     EXPECT_EQ(code_holder, 0);
     auto parsed = parse_client_output(out_holder);
-    EXPECT_EQ(parsed.key, "3");
+    EXPECT_EQ(parsed.key, "D");
 }
 
 #endif  // DECRYPTOR_TEST_WORKER_JOINS_LATE
