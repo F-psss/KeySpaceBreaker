@@ -225,10 +225,7 @@ namespace json_protocol {
 }
 
 json HelloPayload::to_json() const {
-    json j = {
-        {"peer_id", m_peer_id},
-        {"role", m_role}
-    };
+    json j = {{"peer_id", m_peer_id}, {"role", m_role}};
     return j;
 }
 
@@ -276,7 +273,7 @@ Message Message::from_json(const json &j) {
         case Action::PEER_PING:
             msg.payload = PingPayload().from_json(j["payload"]);
             break;
-            
+
         case Action::PEER_ELECTION:
             msg.payload = PeerIdPayload().from_json(j["payload"]);
             break;
@@ -294,7 +291,6 @@ Message Message::from_json(const json &j) {
     }
     return msg;
 }
-
 
 Message Message::create_decrypt_request(std::unique_ptr<Payload> payload) {
     return {MessageType::REQUEST, Action::DECRYPT, std::move(payload)};
@@ -343,7 +339,6 @@ Message Message::create_peer_alive(std::unique_ptr<Payload> payload) {
 Message Message::create_peer_coordinator(std::unique_ptr<Payload> payload) {
     return {MessageType::REQUEST, Action::PEER_COORDINATOR, std::move(payload)};
 }
-
 
 asio::awaitable<void> Connection::send_message(const Message &msg) {
     std::string json_str = msg.to_json().dump();

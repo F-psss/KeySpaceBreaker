@@ -2,4 +2,4 @@
 
 #include "config.hpp"
 
-app_config::CoordinatorConfig parse_coordinator_config(int argc, char** argv);
+app_config::CoordinatorConfig parse_coordinator_config(int argc, char **argv);

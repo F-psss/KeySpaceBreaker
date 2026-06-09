@@ -5,19 +5,14 @@
 #include <iostream>
 #include "coord_config.hpp"
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
     try {
         auto cfg = parse_coordinator_config(argc, argv);
         asio::io_context io;
 
         server::CoordinatorServer server(
-            io,
-            cfg.worker_port,
-            cfg.client_port,
-            cfg.peer_port,
-            cfg.id,
-            cfg.peer_addresses,
-            cfg.checkpoint_path
+            io, cfg.worker_port, cfg.client_port, cfg.peer_port, cfg.id,
+            cfg.peer_addresses, cfg.checkpoint_path
         );
         server.start();
 
@@ -37,7 +32,7 @@ int main(int argc, char** argv) {
 
         io.run();
 
-    } catch (const CLI::ParseError& e) {
+    } catch (const CLI::ParseError &e) {
         std::cerr << e.what() << std::endl;
         return e.get_exit_code();
     } catch (const std::exception &e) {

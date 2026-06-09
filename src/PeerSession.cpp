@@ -1,5 +1,5 @@
-#include <PeerSession.hpp>
 #include <CoordServ.hpp>
+#include <PeerSession.hpp>
 #include <asio/co_spawn.hpp>
 #include <iostream>
 
@@ -10,7 +10,9 @@ PeerSession::PeerSession(
     CoordinatorServer &server,
     bool is_initiator
 )
-    : m_conn(std::move(socket)), m_server(server), m_is_initiator(is_initiator) {
+    : m_conn(std::move(socket)),
+      m_server(server),
+      m_is_initiator(is_initiator) {
 }
 
 void PeerSession::start() {
@@ -18,18 +20,27 @@ void PeerSession::start() {
 }
 
 asio::awaitable<void> PeerSession::send_hello(
-    int my_id, int my_role,
+    int my_id,
+    int my_role,
     json_protocol::MessageType type
 ) {
-    if (m_closing_intentionally) co_return;
+    if (m_closing_intentionally) {
+        co_return;
+    }
     try {
-        auto payload = std::make_unique<json_protocol::HelloPayload>(my_id, my_role);
+        auto payload =
+            std::make_unique<json_protocol::HelloPayload>(my_id, my_role);
         auto msg = (type == json_protocol::MessageType::REQUEST)
-            ? json_protocol::Message::create_peer_hello_request(std::move(payload))
-            : json_protocol::Message::create_peer_hello_response(std::move(payload));
+                       ? json_protocol::Message::create_peer_hello_request(
+                             std::move(payload)
+                         )
+                       : json_protocol::Message::create_peer_hello_response(
+                             std::move(payload)
+                         );
         co_await m_conn.send_message(msg);
     } catch (const std::exception &e) {
-        std::cerr << "PeerSession::send_hello failed: " << e.what() << std::endl;
+        std::cerr << "PeerSession::send_hello failed: " << e.what()
+                  << std::endl;
     }
 }
 
@@ -41,10 +52,12 @@ asio::awaitable<void> PeerSession::read_loop() {
         }
     } catch (const std::exception &e) {
         if (m_closing_intentionally) {
-            std::cout << "[Peer " << (m_peer_id ? std::to_string(*m_peer_id) : "?")
+            std::cout << "[Peer "
+                      << (m_peer_id ? std::to_string(*m_peer_id) : "?")
                       << "] connection closed (dedup)" << std::endl;
         } else {
-            std::cerr << "[Peer " << (m_peer_id ? std::to_string(*m_peer_id) : "?")
+            std::cerr << "[Peer "
+                      << (m_peer_id ? std::to_string(*m_peer_id) : "?")
                       << "] connection lost: " << e.what() << std::endl;
             m_server.on_peer_disconnected(shared_from_this());
         }
@@ -52,7 +65,6 @@ asio::awaitable<void> PeerSession::read_loop() {
 }
 
 void PeerSession::handle_message(const json_protocol::Message &msg) {
-
     auto action = msg.get_action();
 
     if (action == json_protocol::Action::PEER_HELLO) {
@@ -64,22 +76,32 @@ void PeerSession::handle_message(const json_protocol::Message &msg) {
         return;
     }
     if (action == json_protocol::Action::PEER_ELECTION) {
-        auto *p = dynamic_cast<json_protocol::PeerIdPayload *>(msg.payload.get());
-        if (p) m_server.on_peer_election(p->get_peer_id());
+        auto *p =
+            dynamic_cast<json_protocol::PeerIdPayload *>(msg.payload.get());
+        if (p) {
+            m_server.on_peer_election(p->get_peer_id());
+        }
         return;
     }
     if (action == json_protocol::Action::PEER_ALIVE) {
-        auto *p = dynamic_cast<json_protocol::PeerIdPayload *>(msg.payload.get());
-        if (p) m_server.on_peer_alive(p->get_peer_id());
+        auto *p =
+            dynamic_cast<json_protocol::PeerIdPayload *>(msg.payload.get());
+        if (p) {
+            m_server.on_peer_alive(p->get_peer_id());
+        }
         return;
     }
     if (action == json_protocol::Action::PEER_COORDINATOR) {
-        auto *p = dynamic_cast<json_protocol::PeerIdPayload *>(msg.payload.get());
-        if (p) m_server.on_peer_coordinator(p->get_peer_id());
+        auto *p =
+            dynamic_cast<json_protocol::PeerIdPayload *>(msg.payload.get());
+        if (p) {
+            m_server.on_peer_coordinator(p->get_peer_id());
+        }
         return;
     }
 
-    std::cout << "[Peer " << (m_peer_id ? std::to_string(*m_peer_id) : "unknown")
+    std::cout << "[Peer "
+              << (m_peer_id ? std::to_string(*m_peer_id) : "unknown")
               << "] received unhandled action" << std::endl;
 }
 
@@ -94,8 +116,8 @@ void PeerSession::handle_hello(const json_protocol::Message &msg) {
     m_peer_id = payload->get_peer_id();
     m_peer_role = payload->get_role();
     std::cout << "[Peer] HELLO from id=" << *m_peer_id
-                << " role=" << (m_peer_role == 0 ? "Primary" : "Backup")
-                << std::endl;
+              << " role=" << (m_peer_role == 0 ? "Primary" : "Backup")
+              << std::endl;
 
     if (msg.get_type() == json_protocol::MessageType::REQUEST) {
         auto self = shared_from_this();
@@ -115,7 +137,9 @@ void PeerSession::handle_hello(const json_protocol::Message &msg) {
 }
 
 asio::awaitable<void> PeerSession::send_raw(const json_protocol::Message &msg) {
-    if (m_closing_intentionally) co_return;
+    if (m_closing_intentionally) {
+        co_return;
+    }
     try {
         co_await m_conn.send_message(msg);
     } catch (const std::exception &e) {

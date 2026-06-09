@@ -30,4 +30,4 @@ Unit StaticPolicy::get_next_unit() {
     m_current_start = end + 1;
     return unit;
 }
-} // namespace server
+}  // namespace server

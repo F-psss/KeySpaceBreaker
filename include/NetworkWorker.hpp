@@ -7,8 +7,16 @@
 
 class Worker {
 public:
-    Worker(asio::io_context &io, std::string ip, uint16_t port, const std::string& dict_path, std::string& trigrams_path)
-        : m_io(io), m_coordinator_ip(std::move(ip)), m_coordinator_port(port), m_dict_path(dict_path), m_trigrams_path(trigrams_path){
+    Worker(
+        asio::io_context &io,
+        std::vector<std::string> coordinator_addresses,
+        const std::string &dict_path,
+        const std::string &trigrams_path
+    )
+        : m_io(io),
+          m_coordinator_addresses(std::move(coordinator_addresses)),
+          m_dict_path(dict_path),
+          m_trigrams_path(trigrams_path) {
     }
 
     void start();
@@ -23,12 +31,12 @@ private:
 
     asio::io_context &m_io;
     std::unique_ptr<server::Decryptor> m_decryptor;
-    std::string m_coordinator_ip = "127.0.0.1";
-    uint16_t m_coordinator_port = 12345;
+    std::vector<std::string> m_coordinator_addresses;
     std::string m_dict_path;
     std::string m_trigrams_path;
     std::shared_ptr<json_protocol::Connection> m_conn;
     std::vector<uint8_t> m_cachedCiphertext;
     bool m_hasCiphertext = false;
 };
-#endif
+
+#endif  // NETWORKWORKER_HPP

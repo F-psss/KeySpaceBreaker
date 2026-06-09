@@ -41,11 +41,12 @@ private:
 class DecryptPayload final : public Payload {
 public:
     DecryptPayload()
-    : cipher(decrypt::CipherType::UNKNOWN),
-      mode(decrypt::VigenereMode::UNKNOWN),
-      noise(0.5),
-      key_length(0)
-{}
+        : cipher(decrypt::CipherType::UNKNOWN),
+          mode(decrypt::VigenereMode::UNKNOWN),
+          noise(0.5),
+          key_length(0) {
+    }
+
     [[nodiscard]] json to_json() const final;
     [[nodiscard]] std::unique_ptr<Payload> from_json(const json &) const final;
 
@@ -64,15 +65,19 @@ public:
     [[nodiscard]] const std::vector<uint8_t> &get_end_key() const {
         return end_key;
     }
+
     [[nodiscard]] decrypt::VigenereMode get_mode() const {
         return mode;
     }
+
     [[nodiscard]] int get_key_length() const {
         return key_length;
     }
+
     [[nodiscard]] double get_noise() const {
         return noise;
     }
+
     void set_cipher(decrypt::CipherType ciphe) {
         cipher = ciphe;
     }
@@ -92,9 +97,11 @@ public:
     void set_noise(double n) {
         noise = n;
     }
+
     void set_mode(decrypt::VigenereMode m) {
         mode = m;
     }
+
     void set_key_length(int key_l) {
         key_length = key_l;
     }
@@ -249,7 +256,10 @@ private:
 class HelloPayload final : public Payload {
 public:
     HelloPayload() = default;
-    explicit HelloPayload(int peer_id, int role) : m_peer_id(peer_id), m_role(role) {}
+
+    explicit HelloPayload(int peer_id, int role)
+        : m_peer_id(peer_id), m_role(role) {
+    }
 
     [[nodiscard]] json to_json() const final;
     [[nodiscard]] std::unique_ptr<Payload> from_json(const json &) const final;
@@ -258,34 +268,44 @@ public:
         return m_peer_id;
     }
 
-    [[nodiscard]] int get_role() const { return m_role; }
+    [[nodiscard]] int get_role() const {
+        return m_role;
+    }
 
     void set_peer_id(int peer_id) {
         m_peer_id = peer_id;
     }
 
-    void set_role(int role) { m_role = role; }
+    void set_role(int role) {
+        m_role = role;
+    }
 
 private:
     int m_peer_id = 0;
-    int m_role = 1; // 0 = Primary, 1 = Backup
+    int m_role = 1;  // 0 = Primary, 1 = Backup
 };
 
 class PeerIdPayload final : public Payload {
 public:
     PeerIdPayload() = default;
-    explicit PeerIdPayload(int peer_id) : m_peer_id(peer_id) {}
+
+    explicit PeerIdPayload(int peer_id) : m_peer_id(peer_id) {
+    }
 
     [[nodiscard]] json to_json() const final;
     [[nodiscard]] std::unique_ptr<Payload> from_json(const json &) const final;
 
-    [[nodiscard]] int get_peer_id() const { return m_peer_id; }
-    void set_peer_id(int peer_id) { m_peer_id = peer_id; }
+    [[nodiscard]] int get_peer_id() const {
+        return m_peer_id;
+    }
+
+    void set_peer_id(int peer_id) {
+        m_peer_id = peer_id;
+    }
 
 private:
     int m_peer_id = 0;
 };
-
 
 };  // namespace json_protocol
 #endif

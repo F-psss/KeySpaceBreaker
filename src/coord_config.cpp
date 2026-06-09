@@ -1,7 +1,8 @@
-#include "CLI/CLI.hpp"
 #include "coord_config.hpp"
 #include <stdexcept>
 #include <string>
+#include "CLI/CLI.hpp"
+
 app_config::CoordinatorConfig parse_coordinator_config(int argc, char **argv) {
     CLI::App app{"Coordinator config"};
     int worker_port = 0;
@@ -13,19 +14,24 @@ app_config::CoordinatorConfig parse_coordinator_config(int argc, char **argv) {
 
     app.set_config("--config", "", "Path to config file");
 
-    app.add_option("--worker-port", worker_port, "Port for workers")->required();
+    app.add_option("--worker-port", worker_port, "Port for workers")
+        ->required();
     app.add_option("--client-port", client_port, "Port for client")->required();
 
-    app.add_option("--id", id, "Coordinator ID (unique, lower = higher priority)")
+    app.add_option(
+           "--id", id, "Coordinator ID (unique, lower = higher priority)"
+    )
         ->required();
 
-    app.add_option("--peer-port", peer_port, "Port for peer-to-peer connections")
+    app.add_option(
+           "--peer-port", peer_port, "Port for peer-to-peer connections"
+    )
         ->required();
 
     app.add_option(
            "--peers", peer_addresses,
            "Addresses of other coordinators (host:peer_port), comma-separated"
-       )
+    )
         ->delimiter(',');
 
     app.add_option("--checkpoint", checkpoint_path, "Path to checkpoint file");

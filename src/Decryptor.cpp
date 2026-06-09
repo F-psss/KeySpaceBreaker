@@ -83,7 +83,6 @@ void PolyAlphabeticDecryptor::process_unit(std::shared_ptr<Unit> unit) {
         double score = 0;
         if (unit->get_mode() == decrypt::VigenereMode::FAST) {
             score = score_for_key(current_key);
-            std::cout << "sdffffffffffff\n";
         } else {
             std::string candidate_text = m_message->decrypt(current_key);
             if (m_has_trigrams) {
@@ -98,8 +97,6 @@ void PolyAlphabeticDecryptor::process_unit(std::shared_ptr<Unit> unit) {
                 }
             }
         }
-        std::cout << current_key << '\n';
-        std::cout << score << '\n';
         if (score < m_best_result.score_) {
             m_best_result.score_ = score;
             m_best_result.key_ = current_key;

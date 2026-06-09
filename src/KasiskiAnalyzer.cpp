@@ -27,7 +27,9 @@ int KasiskiAnalyzer::guessKeyLengthByIC(
 ) {
     std::string cleanText;
     for (char c : ciphertext) {
-        if (std::isalpha(c)) cleanText += std::toupper(c);
+        if (std::isalpha(c)) {
+            cleanText += std::toupper(c);
+        }
     }
 
     double bestIC = 0.0;
@@ -60,7 +62,9 @@ int KasiskiAnalyzer::guessKeyLength(
     maxLen = 10;
     std::string text;
     for (char c : ciphertext) {
-        if (std::isalpha(c)) text += std::toupper(c);
+        if (std::isalpha(c)) {
+            text += std::toupper(c);
+        }
     }
 
     // Считаем сколько раз каждый делитель встречается среди расстояний
@@ -71,7 +75,9 @@ int KasiskiAnalyzer::guessKeyLength(
 
     std::map<int, int> divisorCount;
     for (const auto &[trigram, positions] : trigramPositions) {
-        if (positions.size() < 2) continue;
+        if (positions.size() < 2) {
+            continue;
+        }
         for (size_t j = 1; j < positions.size(); ++j) {
             int dist = positions[j] - positions[j - 1];
             for (int d = std::max(minLen, 2); d <= maxLen; ++d) {

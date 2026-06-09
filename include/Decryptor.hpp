@@ -35,8 +35,10 @@ public:
         m_dict.load(dict_path);
         load_trigrams(trigrams_path);
     }
+
     void process_unit(std::shared_ptr<Unit> unit) override;
-        [[nodiscard]] Result get_best_result() const override {
+
+    [[nodiscard]] Result get_best_result() const override {
         return m_best_result;
     }
 
@@ -52,9 +54,9 @@ private:
     Result m_best_result;
     std::array<std::array<int, 26>, 7> streams_freq{};
     std::array<int, 7> stream_size;
-    void pre_calculation_score(const std::string& text);
+    void pre_calculation_score(const std::string &text);
     static double calculate_score(const std::string &text);
-    double score_for_key(const std::string& key);
+    double score_for_key(const std::string &key);
     static const double ENGLISH_FREQS[26];
 };
 
