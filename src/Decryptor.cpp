@@ -1,7 +1,10 @@
 #include "Decryptor.hpp"
+#include <algorithm>
 #include <iostream>
 #include <limits>
-#include <algorithm>
+#include <fstream>
+#include <sstream>
+#include <cmath>
 
 namespace server {
 const double PolyAlphabeticDecryptor::ENGLISH_FREQS[26] = {
@@ -10,7 +13,8 @@ const double PolyAlphabeticDecryptor::ENGLISH_FREQS[26] = {
     0.07507, 0.01929, 0.00095, 0.05987, 0.06327, 0.09056, 0.02758,  // O-U
     0.00978, 0.02360, 0.00150, 0.01974, 0.00074                     // V-Z
 };
-double PolyAlphabeticDecryptor::score_for_key(const std::string& key) {
+
+double PolyAlphabeticDecryptor::score_for_key(const std::string &key) {
     double total = 0;
     for (int i = 0; i < key.size(); ++i) {
         int shift = key[i] - 'A';
@@ -81,13 +85,16 @@ void PolyAlphabeticDecryptor::process_unit(std::shared_ptr<Unit> unit) {
             score = score_for_key(current_key);
         } else {
             std::string candidate_text = m_message->decrypt(current_key);
-            const double freq_score = calculate_score(candidate_text);
-            score = freq_score;
-            if (noise != 0.0) {
-                const double dict_score = m_dict.score(candidate_text);
-                // одновременно учитывается словарь и частотный анализ
-                score = freq_score * (1 - noise * noise) -
-                        dict_score * noise * 100;
+            if (m_has_trigrams) {
+                score = -trigram_score(candidate_text);
+            } else {
+                // критерий пирсона как fallback
+                const double freq_score = calculate_score(candidate_text);
+                score = freq_score;
+                if (noise != 0.0) {
+                    const double dict_score = m_dict.score(candidate_text);
+                    score = freq_score * (1 - noise * noise) - dict_score * noise * 100;
+                }
             }
         }
         if (score < m_best_result.score_) {
@@ -100,6 +107,49 @@ void PolyAlphabeticDecryptor::process_unit(std::shared_ptr<Unit> unit) {
     }
     m_best_result.text_ = m_message->decrypt(m_best_result.key_);
     unit->mark_as_done();
+}
+
+void PolyAlphabeticDecryptor::load_trigrams(const std::string& path) {
+    std::ifstream file(path);
+    if (!file.is_open()) {
+        std::cerr << "Cannot open trigram file: " << path << std::endl;
+        return;
+    }
+
+    std::string tri;
+    double log_prob;
+    double min_log = 0.0;
+    while (file >> tri >> log_prob) {
+        m_trigrams[tri] = log_prob;
+        if (log_prob < min_log) {
+            min_log = log_prob;
+        }
+    }
+
+    m_trigram_floor = min_log - 1.0;
+    m_has_trigrams = !m_trigrams.empty();
+}
+
+double PolyAlphabeticDecryptor::trigram_score(const std::string& text) const {
+    std::string clean;
+    clean.reserve(text.size());
+    for (char c : text) {
+        if (std::isalpha(static_cast<unsigned char>(c))) {
+            clean += std::toupper(c);
+        }
+    }
+
+    if (clean.size() < 3) {
+        return m_trigram_floor * 10;
+    }
+
+    double score = 0.0;
+    for (std::size_t i = 0; i + 3 <= clean.size(); ++i) {
+        std::string tri = clean.substr(i, 3);
+        auto it = m_trigrams.find(tri);
+        score += (it != m_trigrams.end()) ? it->second : m_trigram_floor;
+    }
+    return score;
 }
 
 double PolyAlphabeticDecryptor::calculate_score(const std::string &text) {

@@ -20,24 +20,54 @@ void Worker::stop() {
 
 asio::awaitable<void> Worker::connect() {
     while (true) {
-        try {
-            asio::ip::tcp::endpoint endpoint(
-                asio::ip::make_address(m_coordinator_ip), m_coordinator_port
-            );
-            asio::ip::tcp::socket socket(m_io);
-            co_await socket.async_connect(endpoint, asio::use_awaitable);
+        bool connected_this_round = false;
 
-            m_conn =
-                std::make_shared<json_protocol::Connection>(std::move(socket));
-            std::cout << "Worker connected to coordinator" << std::endl;
+        for (const auto &address : m_coordinator_addresses) {
+            auto pos = address.find(':');
+            if (pos == std::string::npos) {
+                std::cerr << "Invalid coordinator address: " << address
+                          << std::endl;
+                continue;
+            }
+            std::string host = address.substr(0, pos);
+            std::string port_str = address.substr(pos + 1);
 
-            co_await run();
-        } catch (const std::exception &e) {
-            std::cerr << "Connection error: " << e.what() << std::endl;
+            try {
+                asio::ip::tcp::socket socket(m_io);
+                asio::ip::tcp::resolver resolver(m_io);
+                auto endpoints = co_await resolver.async_resolve(
+                    host, port_str, asio::use_awaitable
+                );
+                co_await asio::async_connect(
+                    socket, endpoints, asio::use_awaitable
+                );
+
+                m_conn =
+                    std::make_shared<json_protocol::Connection>(std::move(socket
+                    ));
+                std::cout << "Worker connected to coordinator " << address
+                          << std::endl;
+
+                connected_this_round = true;
+                co_await run();
+
+                std::cout << "Connection to " << address << " lost, will retry"
+                          << std::endl;
+                m_conn.reset();
+                break;
+
+            } catch (const std::exception &e) {
+                std::cerr << "Cannot connect to " << address << ": " << e.what()
+                          << " — trying next" << std::endl;
+                continue;
+            }
         }
-        asio::steady_timer timer(m_io);
-        timer.expires_after(std::chrono::seconds(5));
-        co_await timer.async_wait(asio::use_awaitable);
+
+        if (!connected_this_round) {
+            asio::steady_timer timer(m_io);
+            timer.expires_after(std::chrono::seconds(2));
+            co_await timer.async_wait(asio::use_awaitable);
+        }
     }
 }
 
@@ -74,11 +104,13 @@ void Worker::handle_message(const json_protocol::Message &msg) {
         }
 
         // Далее используем m_cachedCiphertext вместо payload->get_cipher_text()
-        const std::string text(m_cachedCiphertext.begin(), m_cachedCiphertext.end());
+        const std::string text(
+            m_cachedCiphertext.begin(), m_cachedCiphertext.end()
+        );
         if (payload->get_cipher() == decrypt::CipherType::CAESAR) {
             auto enc = std::make_shared<server::CaesarEncryptedMessage>(text);
             auto caesar_worker =
-                std::make_unique<server::PolyAlphabeticDecryptor>(enc, m_dict_path);
+                std::make_unique<server::PolyAlphabeticDecryptor>(enc, m_dict_path, m_trigrams_path);
             m_decryptor = std::move(caesar_worker);
             auto start_vec = payload->get_start_key();
             auto end_vec = payload->get_end_key();
@@ -97,8 +129,7 @@ void Worker::handle_message(const json_protocol::Message &msg) {
             );
 
         } else if (payload->get_cipher() == decrypt::CipherType::VIGENERE) {
-            auto enc =
-                std::make_shared<server::VigenereEncryptedMessage>(text);
+            auto enc = std::make_shared<server::VigenereEncryptedMessage>(text);
             std::string start_key_str(
                 payload->get_start_key().begin(), payload->get_start_key().end()
             );
@@ -117,7 +148,7 @@ void Worker::handle_message(const json_protocol::Message &msg) {
             int end = key_to_index(end_key_str);
 
             auto vigenere_worker =
-                std::make_unique<server::PolyAlphabeticDecryptor>(enc, m_dict_path);
+                std::make_unique<server::PolyAlphabeticDecryptor>(enc, m_dict_path, m_trigrams_path);
             m_decryptor = std::move(vigenere_worker);
 
             auto unit = std::make_shared<server::Unit>(
@@ -140,7 +171,6 @@ asio::awaitable<void> Worker::run_decryptor_task(
         if (!m_decryptor) {
             throw std::runtime_error("No decryptor");
         }
-
         m_decryptor->process_unit(unit);
         auto result = m_decryptor->get_best_result();
 
@@ -150,9 +180,9 @@ asio::awaitable<void> Worker::run_decryptor_task(
         auto st_payload = std::make_unique<json_protocol::StatusPayload>(
             unit->get_cipher(), result.text_, result.key_, result.score_
         );
-        auto res_msg = json_protocol::Message::create_status_request(
-            std::move(st_payload)
-        );
+        auto res_msg =
+            json_protocol::Message::create_status_request(std::move(st_payload)
+            );
         co_await m_conn->send_message(res_msg);
     } catch (const std::exception &e) {
         std::cerr << "Exception in run_decryptor_task: " << e.what()

@@ -22,6 +22,9 @@ class CoordinatorServer {
     friend class PeerSession;
 
 public:
+    std::string m_full_ciphertext;
+    decrypt::CipherType m_cipher_type = decrypt::CipherType::UNKNOWN;
+
     CoordinatorServer(
         asio::io_context &io,
         short worker_port,
@@ -34,7 +37,11 @@ public:
 
     // Запуск акцепторов (корутины)
     void start();
-    bool is_subtask() const { return m_is_subtask; }
+
+    bool is_subtask() const {
+        return m_is_subtask;
+    }
+
     // Управление воркерами
     void add_worker(std::shared_ptr<WorkerSession> worker);
     void remove_worker(std::shared_ptr<WorkerSession> worker);
@@ -52,17 +59,31 @@ public:
         std::shared_ptr<EncryptedMessage> message,
         std::shared_ptr<Policy> policy
     );
-    
-    int get_id() const { return m_id; }
-    Role get_role() const { return m_role; }
+
+    int get_id() const {
+        return m_id;
+    }
+
+    Role get_role() const {
+        return m_role;
+    }
 
     void on_peer_hello(std::shared_ptr<PeerSession> peer);
 
-
 private:
+
     asio::io_context &m_io;
     int m_id;
     bool m_is_subtask = false;
+
+    short m_worker_port;
+    short m_client_port;
+    // are worker/client acceptors open
+    bool m_serving = false;
+
+    void open_serving_acceptors();
+    void close_serving_acceptors();
+    void update_serving_state();
 
     Role m_role = Role::Backup;
     void recompute_role();
@@ -93,13 +114,10 @@ private:
     void check_timeouts();
     void handle_timeout(int unit_index);
 
-    
-    
     std::string m_checkpoint_path;
     std::size_t m_last_checkpoint_done = 0;
     static constexpr std::size_t CHECKPOINT_EVERY_N_UNITS = 5;
     void maybe_save_checkpoint();
-
 
     // --- Heartbeat ---
     asio::steady_timer m_heartbeat_timer;
@@ -128,7 +146,6 @@ private:
 
     static constexpr int ELECTION_TIMEOUT_SEC = 3;
 
-
     void start_election();
     asio::awaitable<void> send_election_to_lower_ids();
     asio::awaitable<void> announce_coordinator();
@@ -137,7 +154,6 @@ private:
     void on_peer_coordinator(int from_id);
 
     asio::awaitable<void> send_alive_to(int target_id);
-
 };
 
 }  // namespace server

@@ -1,11 +1,11 @@
 #pragma once
-#include <unordered_set>
 #include <string>
+#include <unordered_set>
 
 class Dictionary {
 public:
-    void load(const std::string& path);
-    double score(const std::string& text) const;
+    void load(const std::string &path);
+    double score(const std::string &text) const;
 
 private:
     std::unordered_set<std::string> words;

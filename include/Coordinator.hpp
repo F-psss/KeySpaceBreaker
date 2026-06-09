@@ -13,7 +13,6 @@
 namespace server {
 
 const std::chrono::seconds UNIT_TIMEOUT(10);
-static constexpr double FAST_THRESHOLD = 200.0;
 
 class Coordinator {
 public:
@@ -21,8 +20,7 @@ public:
         std::shared_ptr<EncryptedMessage> message,
         std::shared_ptr<Policy> policy
     );
-    asio::awaitable<void> assign_to_worker(
-        std::shared_ptr<WorkerSession> worker
+    asio::awaitable<void> assign_to_worker(std::shared_ptr<WorkerSession> worker
     );
 
     size_t unit_count() {

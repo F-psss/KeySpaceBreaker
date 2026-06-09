@@ -14,7 +14,7 @@ std::vector<int> CaesarEncryptedMessage::generate_key_space() const {
     return keys;
 }
 
-std::string CaesarEncryptedMessage::decrypt(const std::string& key) const {
+std::string CaesarEncryptedMessage::decrypt(const std::string &key) const {
     std::string decrypted_text;
     int shift;
     if (key.size() == 1 && std::isalpha(key[0])) {
