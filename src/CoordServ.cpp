@@ -110,13 +110,23 @@ asio::awaitable<void> CoordinatorServer::client_accept_loop() {
             auto socket =
                 co_await m_client_acceptor.async_accept(asio::use_awaitable);
 
+            bool is_busy =
+                m_client && m_coordinator && !m_coordinator->all_units_done();
+            if (is_busy) {
+                std::cout
+                    << "Client rejected: coordinator is busy with another task"
+                    << std::endl;
+                std::error_code ec;
+                socket.close(ec);
+                continue;
+            }
+
             auto session =
                 std::make_unique<ClientSession>(std::move(socket), *this);
-
             session->start();
             m_client = std::move(session);
-
             std::cout << "Client connected" << std::endl;
+
         } catch (const std::exception &e) {
             if (!m_client_acceptor.is_open()) {
                 std::cout << "Client accept loop stopped (acceptor closed)"
