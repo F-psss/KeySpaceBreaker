@@ -1,0 +1,7 @@
+{
+  "cipher": "vigenere",
+  "mode": "fast",
+  "key_length": 5,
+  "noise": 0.1,
+  "expected_key": "MONEY"
+}

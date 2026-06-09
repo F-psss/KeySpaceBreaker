@@ -1,0 +1,7 @@
+{
+  "cipher": "caesar",
+  "mode": "brute",
+  "key_length": 1,
+  "noise": 0.0,
+  "expected_key": "F"
+}
