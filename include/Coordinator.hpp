@@ -13,7 +13,6 @@
 namespace server {
 
 const std::chrono::seconds UNIT_TIMEOUT(10);
-static constexpr double FAST_THRESHOLD = 200.0;
 
 class Coordinator {
 public:

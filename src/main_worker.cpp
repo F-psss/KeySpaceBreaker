@@ -11,7 +11,7 @@ int main(int argc, char** argv) {
 
         asio::io_context io;
 
-        Worker worker(io, cfg.coordinator_host, cfg.coordinator_port, cfg.dict_path);
+        Worker worker(io, cfg.coordinator_host, cfg.coordinator_port, cfg.dict_path, cfg.trigrams_path);
         worker.start();
 
         io.run();

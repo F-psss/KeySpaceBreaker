@@ -260,8 +260,17 @@ void CoordinatorServer::send_result_to_client(const Result &result) {
         std::cerr << "No client connected to send result\n";
         return;
     }
+    Result full_result = result;
+    std::shared_ptr<EncryptedMessage> msg;
+    if (m_cipher_type == decrypt::CipherType::CAESAR) {
+        msg = std::make_shared<CaesarEncryptedMessage>(m_full_ciphertext);
+    } else {
+        msg = std::make_shared<VigenereEncryptedMessage>(m_full_ciphertext);
+    }
 
-    asio::co_spawn(m_io, m_client->send_final_result(result), asio::detached);
+    full_result.text_ = msg->decrypt(result.key_);
+
+    asio::co_spawn(m_io, m_client->send_final_result(full_result), asio::detached);
 }
 
 asio::awaitable<void> ClientSession::handle_task_request(
@@ -276,17 +285,14 @@ asio::awaitable<void> ClientSession::handle_task_request(
         }
 
         std::shared_ptr<EncryptedMessage> encrypted_msg;
-
+        m_current_cipher = payload->get_cipher();
+        auto cipher_vec = payload->get_cipher_text();
+        std::string text(cipher_vec.begin(), cipher_vec.end());
+        m_server.m_full_ciphertext = text;
+        m_server.m_cipher_type = payload->get_cipher();
         if (payload->get_cipher() == decrypt::CipherType::CAESAR) {
-            m_current_cipher = payload->get_cipher();
-            auto cipher_vec = payload->get_cipher_text();
-            std::string text(cipher_vec.begin(), cipher_vec.end());
-            std::cout << "DEBUG: text2 = " << text << std::endl;
             encrypted_msg = std::make_shared<CaesarEncryptedMessage>(text);
         } else if (payload->get_cipher() == decrypt::CipherType::VIGENERE) {
-            m_current_cipher = payload->get_cipher();
-            auto cipher_vec = payload->get_cipher_text();
-            std::string text(cipher_vec.begin(), cipher_vec.end());
             if (payload->get_mode() == decrypt::VigenereMode::FAST) {
                 text = crop_text(text);
             }
@@ -295,17 +301,12 @@ asio::awaitable<void> ClientSession::handle_task_request(
             std::cerr << "Unsupported cipher" << std::endl;
             co_return;
         }
-
-        int start =
-            payload->get_start_key().empty() ? 0 : payload->get_start_key()[0];
-        int end =
-            payload->get_end_key().empty() ? 25 : payload->get_end_key()[0];
         const double noise = payload->get_noise();
         decrypt::CipherType cipher = payload->get_cipher();
         decrypt::VigenereMode mode = payload->get_mode();
-        std::cout << "NOISE FROM CLIENT = " << noise << std::endl;
-        std::cout << "DEBUG: cipher_keys = " << start << ' ' << end
-                  << std::endl;
+        // std::cout << "NOISE FROM CLIENT = " << noise << std::endl;
+        // std::cout << "DEBUG: cipher_keys = " << start << ' ' << end
+        //           << std::endl;
 
         if (payload->get_cipher() == decrypt::CipherType::CAESAR) {
             // TODO: нужно добавить возможность менять размер юнита

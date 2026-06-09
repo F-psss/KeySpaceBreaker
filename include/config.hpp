@@ -33,6 +33,7 @@ struct WorkerConfig {
     std::string coordinator_host;
     int coordinator_port;
     std::string dict_path;
+    std::string trigrams_path;
 };
 
 } // namespace config

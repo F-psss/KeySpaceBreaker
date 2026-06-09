@@ -22,6 +22,9 @@ class CoordinatorServer {
     friend class PeerSession;
 
 public:
+    std::string m_full_ciphertext;
+    decrypt::CipherType m_cipher_type = decrypt::CipherType::UNKNOWN;
+
     CoordinatorServer(
         asio::io_context &io,
         short worker_port,
@@ -60,6 +63,7 @@ public:
 
 
 private:
+
     asio::io_context &m_io;
     int m_id;
     bool m_is_subtask = false;

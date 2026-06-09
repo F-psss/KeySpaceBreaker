@@ -54,7 +54,8 @@ asio::awaitable<void> run_client(const app_config::ClientConfig &cfg) {
 
             if (payload != nullptr) {
                 std::cout << "\n===== BEST RESULT =====\n";
-                std::cout << "Text:  " << payload->get_cipher_text() << "\n";
+                std::cout << payload->get_cipher_text() << "\n";
+                std::cout << "=======================\n";
                 std::cout << "Key:   " << payload->get_key() << "\n";
                 std::cout << "Score: " << payload->get_score() << "\n";
                 double total_seconds_double = duration / 1000.0;

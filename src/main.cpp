@@ -93,7 +93,7 @@ app_config::ClientConfig run(int argc, char **argv) {
     app.add_option("--cipher", cipher, "Cipher type")
         ->required()
         ->transform(CLI::CheckedTransformer(cipher_map, CLI::ignore_case));
-    decrypt::VigenereMode mode;
+    decrypt::VigenereMode mode = decrypt::VigenereMode::BRUTE;
     auto mode_opt = app.add_option("--mode", mode, "Mode for Vigenere: brute|fast")
         ->transform(CLI::CheckedTransformer(mode_map, CLI::ignore_case));
     //

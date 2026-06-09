@@ -21,6 +21,7 @@ double Dictionary::score(const std::string &text) const {
     int found = 0;
     while (iss >> word) {
         std::transform(word.begin(), word.end(), word.begin(), ::toupper);
+        std::cout << "word = " << word << '\n';
         if (words.contains(word)) {
             found++;
         } else if (!std::isalpha(static_cast<unsigned char>(word[word.size() - 1]))) {
@@ -34,5 +35,6 @@ double Dictionary::score(const std::string &text) const {
     if (total == 0) {
         return 0;
     }
+    std::cout << "found =" << found << '\n';
     return static_cast<double>(found) / total;
 }

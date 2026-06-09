@@ -78,7 +78,7 @@ void Worker::handle_message(const json_protocol::Message &msg) {
         if (payload->get_cipher() == decrypt::CipherType::CAESAR) {
             auto enc = std::make_shared<server::CaesarEncryptedMessage>(text);
             auto caesar_worker =
-                std::make_unique<server::PolyAlphabeticDecryptor>(enc, m_dict_path);
+                std::make_unique<server::PolyAlphabeticDecryptor>(enc, m_dict_path, m_trigrams_path);
             m_decryptor = std::move(caesar_worker);
             auto start_vec = payload->get_start_key();
             auto end_vec = payload->get_end_key();
@@ -117,7 +117,7 @@ void Worker::handle_message(const json_protocol::Message &msg) {
             int end = key_to_index(end_key_str);
 
             auto vigenere_worker =
-                std::make_unique<server::PolyAlphabeticDecryptor>(enc, m_dict_path);
+                std::make_unique<server::PolyAlphabeticDecryptor>(enc, m_dict_path, m_trigrams_path);
             m_decryptor = std::move(vigenere_worker);
 
             auto unit = std::make_shared<server::Unit>(
@@ -140,7 +140,6 @@ asio::awaitable<void> Worker::run_decryptor_task(
         if (!m_decryptor) {
             throw std::runtime_error("No decryptor");
         }
-
         m_decryptor->process_unit(unit);
         auto result = m_decryptor->get_best_result();
 

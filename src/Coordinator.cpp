@@ -41,9 +41,6 @@ asio::awaitable<void> Coordinator::assign_to_worker(
 void Coordinator::cand_to_best(const Result &cand) {
     if (cand.score_ < m_best_result.score_) {
         m_best_result = cand;
-        if (m_mode == decrypt::VigenereMode::FAST && m_best_result.score_ < FAST_THRESHOLD) {
-            m_solved = true;
-        }
     }
 }
 

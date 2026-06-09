@@ -12,10 +12,11 @@ app_config::WorkerConfig parse_worker_config(int argc, char** argv) {
     std::string coordinator_host = "127.0.0.1";
     int coordinator_port = 0;
     std::string dict_path;
-    bool use_cache = true;
+    std::string trigrams_path;
     app.add_option("--coordinator-host", coordinator_host, "Coordinator host")->required();
     app.add_option("--coordinator-port", coordinator_port, "Coordinator port")->required();
     app.add_option("--dict", dict_path, "path_to_dict")->required();
+    app.add_option("--trigrams", trigrams_path, "path_to_trigrams")->required();
     app.parse(argc, argv);
 
     if (coordinator_port < 0 || coordinator_port > 65535) {
@@ -26,5 +27,6 @@ app_config::WorkerConfig parse_worker_config(int argc, char** argv) {
     cfg.coordinator_host = coordinator_host;
     cfg.coordinator_port = coordinator_port;
     cfg.dict_path = dict_path;
+    cfg.trigrams_path = trigrams_path;
     return cfg;
 }
