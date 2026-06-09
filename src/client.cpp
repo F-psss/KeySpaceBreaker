@@ -39,7 +39,8 @@ bool print_result(
     }
 
     std::cout << "\n===== BEST RESULT =====\n";
-    std::cout << "Text:  " << payload->get_cipher_text() << "\n";
+    std::cout << payload->get_cipher_text() << "\n";
+    std::cout << "====================\n";
     std::cout << "Key:   " << payload->get_key() << "\n";
     std::cout << "Score: " << payload->get_score() << "\n";
 
@@ -63,7 +64,7 @@ bool print_result(
     if (!cfg.output_file.empty()) {
         std::ofstream out(cfg.output_file);
         if (out.is_open()) {
-            out << "Text:  " << payload->get_cipher_text() << "\n";
+            out << payload->get_cipher_text() << "\n";
             out << "Key:   " << payload->get_key() << "\n";
             out << "Score: " << payload->get_score() << "\n";
             std::cout << "Result saved to " << cfg.output_file << "\n";
