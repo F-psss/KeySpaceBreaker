@@ -99,7 +99,7 @@ TEST_P(DecryptData, decrypts_correctly) {
             "--cipher", "vigenere",
             "--mode", tc.mode,
             "--input-file", in_file.string(),
-            "--server", coord.client_address(),
+            "--servers", coord.client_address(),
             "--key-length", std::to_string(tc.key_length),
             "--noise", std::to_string(tc.noise)
         });

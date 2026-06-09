@@ -12,10 +12,9 @@
 // Распределённость
 #define DECRYPTOR_TEST_MULTIPLE_WORKERS
 #define DECRYPTOR_TEST_WORKER_JOINS_LATE
-//TODO: ещё вариации для воркеров
 
 // Отказоустойчивость
-// #define DECRYPTOR_TEST_WORKER_DIES  // включить когда будет отлажено
-// #define DECRYPTOR_TEST_CHECKPOINT_RESTORE
+#define DECRYPTOR_TEST_WORKER_DIES
+#define DECRYPTOR_TEST_CHECKPOINT_RESTORE
 
 #endif  // DECRYPTOR_TESTS_CONFIG_HPP

@@ -25,6 +25,7 @@ inline fs::path coord_binary;
 inline fs::path worker_binary;
 inline fs::path client_binary;
 inline fs::path dict_path;
+inline fs::path trigrams_path;
 
 struct CommandResult {
     int code = -1;
@@ -86,17 +87,38 @@ inline ClientResult parse_client_output(const std::string& out) {
     ClientResult result;
     std::istringstream iss(out);
     std::string line;
-    while (std::getline(iss, line)) {
-        auto strip = [](std::string s) {
-            size_t start = s.find_first_not_of(" \t");
-            if (start == std::string::npos) return std::string{};
-            size_t end = s.find_last_not_of(" \t\r\n");
-            return s.substr(start, end - start + 1);
-        };
+    bool in_text = false;
+    std::string text;
 
-        if (line.find("Text:") == 0) {
-            result.text = strip(line.substr(5));
-        } else if (line.find("Key:") == 0) {
+    auto strip = [](std::string s) {
+        size_t start = s.find_first_not_of(" \t");
+        if (start == std::string::npos) return std::string{};
+        size_t end = s.find_last_not_of(" \t\r\n");
+        return s.substr(start, end - start + 1);
+    };
+
+    while (std::getline(iss, line)) {
+        // убираем возможный \r в конце (на случай CRLF)
+        if (!line.empty() && line.back() == '\r') {
+            line.pop_back();
+        }
+
+        if (line == "===== BEST RESULT =====") {
+            in_text = true;
+            continue;
+        }
+        if (line == "====================") {
+            in_text = false;
+            continue;
+        }
+        if (in_text) {
+            if (!text.empty()) {
+                text += "\n";
+            }
+            text += line;
+            continue;
+        }
+        if (line.find("Key:") == 0) {
             result.key = strip(line.substr(4));
         } else if (line.find("Score:") == 0) {
             try {
@@ -105,6 +127,7 @@ inline ClientResult parse_client_output(const std::string& out) {
             }
         }
     }
+    result.text = text;
     return result;
 }
 
@@ -227,9 +250,9 @@ public:
         process_ = std::make_unique<BackgroundProcess>(
             worker_binary,
             std::vector<std::string>{
-                "--coordinator-host", "127.0.0.1",
-                "--coordinator-port", std::to_string(coord.worker_port()),
-                "--dict", dict_path.string()
+                "--coordinators", "127.0.0.1:" + std::to_string(coord.worker_port()),
+                "--dict", dict_path.string(),
+                "--trigrams", trigrams_path.string()
             },
             temp_dir_ / "worker_logs"
         );
@@ -282,7 +305,7 @@ public:
         return run({
             "--cipher", "caesar",
             "--input", ciphertext,
-            "--server", server,
+            "--servers", server,
             "--noise", std::to_string(noise)
         });
     }
@@ -298,7 +321,7 @@ public:
             "--cipher", "vigenere",
             "--mode", mode,
             "--input", ciphertext,
-            "--server", server,
+            "--servers", server,
             "--key-length", std::to_string(key_length),
             "--noise", std::to_string(noise)
         });
