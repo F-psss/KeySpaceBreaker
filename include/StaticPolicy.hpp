@@ -7,7 +7,14 @@ namespace server {
 
 class StaticPolicy : public Policy {
 public:
-    StaticPolicy(int total_keys, int unit_size, double noise, decrypt::CipherType m_cipher, decrypt::VigenereMode m_mode, int key_length);
+    StaticPolicy(
+        int total_keys,
+        int unit_size,
+        double noise,
+        decrypt::CipherType m_cipher,
+        decrypt::VigenereMode m_mode,
+        int key_length
+    );
     Unit get_next_unit() override;
 
 private:

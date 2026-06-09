@@ -1,8 +1,8 @@
 #include "worker_config.hpp"
-#include "CLI/CLI.hpp"
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include "CLI/CLI.hpp"
 
 app_config::WorkerConfig parse_worker_config(int argc, char **argv) {
     CLI::App app{"Worker"};
@@ -12,8 +12,10 @@ app_config::WorkerConfig parse_worker_config(int argc, char **argv) {
     std::vector<std::string> coordinators;
     std::string dict_path;
 
-    app.add_option("--coordinators", coordinators,
-                   "Coordinator addresses (host:port), comma-separated")
+    app.add_option(
+           "--coordinators", coordinators,
+           "Coordinator addresses (host:port), comma-separated"
+    )
         ->required()
         ->delimiter(',');
     app.add_option("--dict", dict_path, "path_to_dict")->required();

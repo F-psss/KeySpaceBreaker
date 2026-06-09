@@ -6,99 +6,139 @@
 #include "JSON_Protocol.hpp"
 #include "fstream"
 
-asio::awaitable<void> run_client(const app_config::ClientConfig &cfg) {
-    try {
-        auto executor = co_await asio::this_coro::executor;
-        asio::ip::tcp::socket socket(executor);
-        asio::ip::tcp::resolver resolver(executor);
-        auto endpoints = co_await resolver.async_resolve(
-            cfg.coordinator_host, std::to_string(cfg.coordinator_port),
-            asio::use_awaitable
-        );
+namespace {
 
-        co_await asio::async_connect(socket, endpoints, asio::use_awaitable);
+json_protocol::Message build_request(const app_config::ClientConfig &cfg) {
+    auto payload = std::make_unique<json_protocol::DecryptPayload>();
+    payload->set_cipher(cfg.cipher);
+    payload->set_noise(cfg.noise);
+    payload->set_cipher_text(cfg.encrypted_data);
+    payload->set_mode(cfg.mode);
+    payload->set_start_key(std::vector<uint8_t>{0});
+    payload->set_end_key(std::vector<uint8_t>{25});
+    payload->set_key_length(cfg.key_length);
+    return json_protocol::Message::create_decrypt_request(std::move(payload));
+}
 
-        auto conn =
-            std::make_shared<json_protocol::Connection>(std::move(socket));
+bool print_result(
+    const json_protocol::Message &response,
+    const app_config::ClientConfig &cfg,
+    long long duration_ms
+) {
+    if (response.get_type() != json_protocol::MessageType::RESPONSE ||
+        response.get_action() != json_protocol::Action::STATUS) {
+        std::cout << "Server responded:\n"
+                  << response.to_json().dump(4) << std::endl;
+        return false;
+    }
+    auto *payload =
+        dynamic_cast<json_protocol::StatusPayload *>(response.payload.get());
+    if (payload == nullptr) {
+        std::cout << "Server responded:\n"
+                  << response.to_json().dump(4) << std::endl;
+        return false;
+    }
 
-        // ===== формируем payload =====
-        auto payload = std::make_unique<json_protocol::DecryptPayload>();
+    std::cout << "\n===== BEST RESULT =====\n";
+    std::cout << "Text:  " << payload->get_cipher_text() << "\n";
+    std::cout << "Key:   " << payload->get_key() << "\n";
+    std::cout << "Score: " << payload->get_score() << "\n";
 
-        payload->set_cipher(cfg.cipher);
-        payload->set_noise(cfg.noise);
-        payload->set_cipher_text(cfg.encrypted_data);
-        payload->set_mode(cfg.mode);
-        payload->set_start_key(std::vector<uint8_t>{0});
-        payload->set_end_key(std::vector<uint8_t>{25});
-        payload->set_key_length(cfg.key_length);
+    double total = duration_ms / 1000.0;
+    int hours = static_cast<int>(total / 3600);
+    int minutes = static_cast<int>((total - hours * 3600) / 60);
+    double secs = total - hours * 3600 - minutes * 60;
+    if (hours > 0) {
+        std::cout << "Time:  " << hours << "h " << minutes << "min "
+                  << std::fixed << std::setprecision(1) << secs << "s\n";
+    } else if (minutes > 0) {
+        std::cout << "Time:  " << minutes << "min " << std::fixed
+                  << std::setprecision(1) << secs << "s\n";
+    } else {
+        std::cout << "Time:  " << std::fixed << std::setprecision(2) << total
+                  << "s\n";
+    }
+    std::cout << "=======================\n";
 
-        auto request =
-            json_protocol::Message::create_decrypt_request(std::move(payload));
-
-        // ===== отправляем =====
-        co_await conn->send_message(request);
-        auto start = std::chrono::steady_clock::now();
-
-        // ===== ждём ответ =====
-        auto response = co_await conn->read_message();
-        auto end = std::chrono::steady_clock::now();
-        auto duration =
-            std::chrono::duration_cast<std::chrono::milliseconds>(end - start)
-                .count();
-
-        if (response.get_type() == json_protocol::MessageType::RESPONSE &&
-            response.get_action() == json_protocol::Action::STATUS) {
-            auto *payload = dynamic_cast<json_protocol::StatusPayload *>(
-                response.payload.get()
-            );
-
-            if (payload != nullptr) {
-                std::cout << "\n===== BEST RESULT =====\n";
-                std::cout << "Text:  " << payload->get_cipher_text() << "\n";
-                std::cout << "Key:   " << payload->get_key() << "\n";
-                std::cout << "Score: " << payload->get_score() << "\n";
-                double total_seconds_double = duration / 1000.0;
-                int hours = static_cast<int>(total_seconds_double / 3600);
-                int minutes = static_cast<int>(
-                    (total_seconds_double - hours * 3600) / 60
-                );
-                double seconds_remain =
-                    total_seconds_double - hours * 3600 - minutes * 60;
-
-                if (hours > 0) {
-                    std::cout << "Time:  " << hours << "h " << minutes << "min "
-                              << std::fixed << std::setprecision(1)
-                              << seconds_remain << "s\n";
-                } else if (minutes > 0) {
-                    std::cout << "Time:  " << minutes << "min " << std::fixed
-                              << std::setprecision(1) << seconds_remain
-                              << "s\n";
-                } else {
-                    std::cout << "Time:  " << std::fixed << std::setprecision(2)
-                              << total_seconds_double << "s\n";
-                }
-                std::cout << "=======================\n";
-                if (!cfg.output_file.empty()) {
-                    std::ofstream out(cfg.output_file);
-                    if (out.is_open()) {
-                        out << "Text:  " << payload->get_cipher_text() << "\n";
-                        out << "Key:   " << payload->get_key() << "\n";
-                        out << "Score: " << payload->get_score() << "\n";
-                        std::cout << "Result saved to " << cfg.output_file << "\n";
-                    } else {
-                        std::cerr << "Cannot open output file: " << cfg.output_file << "\n";
-                    }
-                }
-            } else {
-                std::cout << "Server responded:\n"
-                          << response.to_json().dump(4) << std::endl;
-            }
+    if (!cfg.output_file.empty()) {
+        std::ofstream out(cfg.output_file);
+        if (out.is_open()) {
+            out << "Text:  " << payload->get_cipher_text() << "\n";
+            out << "Key:   " << payload->get_key() << "\n";
+            out << "Score: " << payload->get_score() << "\n";
+            std::cout << "Result saved to " << cfg.output_file << "\n";
         } else {
-            std::cout << "Server responded:\n"
-                      << response.to_json().dump(4) << std::endl;
+            std::cerr << "Cannot open output file: " << cfg.output_file << "\n";
+        }
+    }
+    return true;
+}
+
+}  // namespace
+
+asio::awaitable<void> run_client(const app_config::ClientConfig &cfg) {
+    auto executor = co_await asio::this_coro::executor;
+    auto start = std::chrono::steady_clock::now();
+
+    while (true) {
+        bool sent_this_round = false;
+
+        for (const auto &address : cfg.coordinator_addresses) {
+            auto pos = address.find(':');
+            if (pos == std::string::npos) {
+                std::cerr << "Invalid address: " << address << std::endl;
+                continue;
+            }
+            std::string host = address.substr(0, pos);
+            std::string port_str = address.substr(pos + 1);
+
+            try {
+                asio::ip::tcp::socket socket(executor);
+                asio::ip::tcp::resolver resolver(executor);
+                auto endpoints = co_await resolver.async_resolve(
+                    host, port_str, asio::use_awaitable
+                );
+                co_await asio::async_connect(
+                    socket, endpoints, asio::use_awaitable
+                );
+
+                auto conn =
+                    std::make_shared<json_protocol::Connection>(std::move(socket
+                    ));
+                std::cout << "Client connected to " << address << std::endl;
+
+                co_await conn->send_message(build_request(cfg));
+                sent_this_round = true;
+
+                auto response = co_await conn->read_message();
+                auto now = std::chrono::steady_clock::now();
+                auto dur =
+                    std::chrono::duration_cast<std::chrono::milliseconds>(
+                        now - start
+                    )
+                        .count();
+
+                if (print_result(response, cfg, dur)) {
+                    co_return;
+                }
+
+            } catch (const std::exception &e) {
+                std::cerr << "Connection to " << address
+                          << " failed/lost: " << e.what() << " — trying next"
+                          << std::endl;
+                continue;
+            }
         }
 
-    } catch (const std::exception &e) {
-        std::cerr << "Client error: " << e.what() << std::endl;
+        if (!sent_this_round) {
+            std::cout << "No coordinator available, retrying in 2s..."
+                      << std::endl;
+        } else {
+            std::cout << "Lost connection before result, retrying in 2s..."
+                      << std::endl;
+        }
+        asio::steady_timer timer(executor);
+        timer.expires_after(std::chrono::seconds(2));
+        co_await timer.async_wait(asio::use_awaitable);
     }
 }

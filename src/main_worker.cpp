@@ -1,9 +1,9 @@
 #include <asio.hpp>
 #include <iostream>
-#include "config.hpp"
 #include "CLI/CLI.hpp"
-#include "worker_config.hpp"
 #include "NetworkWorker.hpp"
+#include "config.hpp"
+#include "worker_config.hpp"
 
 int main(int argc, char **argv) {
     try {

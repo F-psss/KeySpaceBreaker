@@ -21,8 +21,7 @@ public:
         std::shared_ptr<EncryptedMessage> message,
         std::shared_ptr<Policy> policy
     );
-    asio::awaitable<void> assign_to_worker(
-        std::shared_ptr<WorkerSession> worker
+    asio::awaitable<void> assign_to_worker(std::shared_ptr<WorkerSession> worker
     );
 
     size_t unit_count() {

@@ -52,7 +52,7 @@ std::vector<uint8_t> read_file_binary(const std::string &path) {
     file.seekg(0, std::ios::beg);
 
     std::vector<uint8_t> buffer(size);
-    if (!file.read(reinterpret_cast<char*>(buffer.data()), size)) {
+    if (!file.read(reinterpret_cast<char *>(buffer.data()), size)) {
         throw std::runtime_error("Error reading file: " + path);
     }
 
@@ -83,19 +83,18 @@ app_config::ClientConfig run(int argc, char **argv) {
     std::map<std::string, decrypt::CipherType> cipher_map{
         {"caesar", decrypt::CipherType::CAESAR},
         {"vigenere", decrypt::CipherType::VIGENERE},
-        {"xor", decrypt::CipherType::XOR}
-    };
+        {"xor", decrypt::CipherType::XOR}};
     std::map<std::string, decrypt::VigenereMode> mode_map{
         {"brute", decrypt::VigenereMode::BRUTE},
-        {"fast", decrypt::VigenereMode::FAST}
-    };
+        {"fast", decrypt::VigenereMode::FAST}};
 
     app.add_option("--cipher", cipher, "Cipher type")
         ->required()
         ->transform(CLI::CheckedTransformer(cipher_map, CLI::ignore_case));
     decrypt::VigenereMode mode;
-    auto mode_opt = app.add_option("--mode", mode, "Mode for Vigenere: brute|fast")
-        ->transform(CLI::CheckedTransformer(mode_map, CLI::ignore_case));
+    auto mode_opt =
+        app.add_option("--mode", mode, "Mode for Vigenere: brute|fast")
+            ->transform(CLI::CheckedTransformer(mode_map, CLI::ignore_case));
     //
     // ---------- input ----------
     //
@@ -110,9 +109,13 @@ app_config::ClientConfig run(int argc, char **argv) {
     auto input_file_opt = input_group->add_option(
         "--input-file", input_file, "Read encrypted data from file"
     );
-    auto output_file_opt = input_group->add_option("--output-file", output_file, "Path to output file (optional)");
+    auto output_file_opt = input_group->add_option(
+        "--output-file", output_file, "Path to output file (optional)"
+    );
     int key_length = -1;
-    app.add_option("--key-length", key_length, "Key length for Vigenere (default: 3)");
+    app.add_option(
+        "--key-length", key_length, "Key length for Vigenere (default: 3)"
+    );
     double noise = 0.5;
 
     app.add_option("--noise", noise, "Noise level (0..1)");
@@ -125,19 +128,14 @@ app_config::ClientConfig run(int argc, char **argv) {
     //
     // ---------- server ----------
     //
-    std::string server_addr;
-    std::string hostname;
-    int port = 0;
+    std::vector<std::string> servers;
 
-    auto server_opt =
-        app.add_option("--server", server_addr, "Server host:port");
-    server_opt->required();
-    auto host_opt = app.add_option("--hostname", hostname, "Server hostname");
-
-    auto port_opt = app.add_option("--port", port, "Server port");
-
-    server_opt->excludes(host_opt);
-    server_opt->excludes(port_opt);
+    app.add_option(
+           "--servers", servers,
+           "Coordinator addresses (host:port), comma-separated"
+    )
+        ->required()
+        ->delimiter(',');
 
     //
     // ---------- parse ----------
@@ -145,8 +143,7 @@ app_config::ClientConfig run(int argc, char **argv) {
     app.parse(argc, argv);
     if (cipher == decrypt::CipherType::VIGENERE && mode_opt->count() == 0) {
         throw CLI::ValidationError(
-            "--mode",
-            "Mode is required when cipher=vigenere (use: brute|fast)"
+            "--mode", "Mode is required when cipher=vigenere (use: brute|fast)"
         );
     }
     //
@@ -169,24 +166,14 @@ app_config::ClientConfig run(int argc, char **argv) {
     }
 
     // server
-    if (!server_addr.empty()) {
-        Endpoint ep = parse_server(server_addr);
-        config.coordinator_host = ep.host;
-        config.coordinator_port = ep.port;
-    } else if (!hostname.empty() || port != 0) {
-        if (hostname.empty() || port == 0) {
-            throw std::runtime_error(
-                "hostname and port must be specified together"
-            );
-        }
-
-        if (port <= 0 || port > 65535) {
-            throw std::runtime_error("Port must be in range 1..65535");
-        }
-
-        config.coordinator_host = hostname;
-        config.coordinator_port = port;
+    if (servers.empty()) {
+        throw std::runtime_error("at least one server address required");
     }
+    // валидация каждого адреса
+    for (const auto &addr : servers) {
+        parse_server(addr);  // бросит исключение если формат неверный
+    }
+    config.coordinator_addresses = servers;
 
     return config;
 }

@@ -1,8 +1,8 @@
 #include "Dictionary.hpp"
 #include <algorithm>
 #include <fstream>
-#include <sstream>
 #include <iostream>
+#include <sstream>
 
 void Dictionary::load(const std::string &path) {
     std::ifstream file(path);
@@ -23,7 +23,9 @@ double Dictionary::score(const std::string &text) const {
         std::transform(word.begin(), word.end(), word.begin(), ::toupper);
         if (words.contains(word)) {
             found++;
-        } else if (!std::isalpha(static_cast<unsigned char>(word[word.size() - 1]))) {
+        } else if (!std::isalpha(
+                       static_cast<unsigned char>(word[word.size() - 1])
+                   )) {
             word.pop_back();
             if (words.contains(word)) {
                 found++;

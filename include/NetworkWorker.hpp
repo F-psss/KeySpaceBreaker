@@ -7,9 +7,11 @@
 
 class Worker {
 public:
-    Worker(asio::io_context &io,
-           std::vector<std::string> coordinator_addresses,
-           const std::string &dict_path)
+    Worker(
+        asio::io_context &io,
+        std::vector<std::string> coordinator_addresses,
+        const std::string &dict_path
+    )
         : m_io(io),
           m_coordinator_addresses(std::move(coordinator_addresses)),
           m_dict_path(dict_path) {
@@ -19,7 +21,8 @@ public:
     void stop();
 
 private:
-    asio::awaitable<void> run_decryptor_task(std::shared_ptr<server::Unit> unit);
+    asio::awaitable<void> run_decryptor_task(std::shared_ptr<server::Unit> unit
+    );
     asio::awaitable<void> connect();
     asio::awaitable<void> run();
     void handle_message(const json_protocol::Message &msg);
@@ -33,4 +36,4 @@ private:
     bool m_hasCiphertext = false;
 };
 
-#endif // NETWORKWORKER_HPP
+#endif  // NETWORKWORKER_HPP

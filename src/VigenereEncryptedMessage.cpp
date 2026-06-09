@@ -4,6 +4,7 @@ namespace server {
 std::string VigenereEncryptedMessage::get_text() const {
     return m_encrypted_text;
 }
+
 std::string VigenereEncryptedMessage::decrypt(const std::string &key) const {
     std::string result;
     size_t key_len = key.length();
@@ -23,6 +24,7 @@ std::string VigenereEncryptedMessage::decrypt(const std::string &key) const {
     }
     return result;
 }
+
 std::vector<int> VigenereEncryptedMessage::generate_key_space() const {
     return {};
 }

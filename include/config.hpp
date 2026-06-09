@@ -7,10 +7,8 @@
 
 namespace app_config {
 
-
 struct ClientConfig {
-    std::string coordinator_host;
-    int coordinator_port;
+    std::vector<std::string> coordinator_addresses;
     decrypt::CipherType cipher;
     decrypt::VigenereMode mode;
     int key_length;
@@ -22,16 +20,16 @@ struct ClientConfig {
 struct CoordinatorConfig {
     int client_port;
     int worker_port;
-    int id = 0;                                 
-    int peer_port = 0;                         
-    std::vector<std::string> peer_addresses;     
+    int id = 0;
+    int peer_port = 0;
+    std::vector<std::string> peer_addresses;
 
     std::string checkpoint_path = "coordinator_checkpoint.json";
 };
 
 struct WorkerConfig {
-    std::vector<std::string> coordinator_addresses; 
+    std::vector<std::string> coordinator_addresses;
     std::string dict_path;
 };
 
-} // namespace config
+}  // namespace app_config

@@ -1,7 +1,7 @@
 #include "Decryptor.hpp"
+#include <algorithm>
 #include <iostream>
 #include <limits>
-#include <algorithm>
 
 namespace server {
 const double PolyAlphabeticDecryptor::ENGLISH_FREQS[26] = {
@@ -10,7 +10,8 @@ const double PolyAlphabeticDecryptor::ENGLISH_FREQS[26] = {
     0.07507, 0.01929, 0.00095, 0.05987, 0.06327, 0.09056, 0.02758,  // O-U
     0.00978, 0.02360, 0.00150, 0.01974, 0.00074                     // V-Z
 };
-double PolyAlphabeticDecryptor::score_for_key(const std::string& key) {
+
+double PolyAlphabeticDecryptor::score_for_key(const std::string &key) {
     double total = 0;
     for (int i = 0; i < key.size(); ++i) {
         int shift = key[i] - 'A';
@@ -86,8 +87,8 @@ void PolyAlphabeticDecryptor::process_unit(std::shared_ptr<Unit> unit) {
             if (noise != 0.0) {
                 const double dict_score = m_dict.score(candidate_text);
                 // одновременно учитывается словарь и частотный анализ
-                score = freq_score * (1 - noise * noise) -
-                        dict_score * noise * 100;
+                score =
+                    freq_score * (1 - noise * noise) - dict_score * noise * 100;
             }
         }
         if (score < m_best_result.score_) {
