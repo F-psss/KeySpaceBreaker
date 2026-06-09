@@ -179,7 +179,12 @@ namespace json_protocol {
         {"cipher_text", m_cipher_text},
         {"key", m_key},
         {"score", m_score},
-        {"progress", m_progress}};
+        {"progress", m_progress},
+        {"done_units", m_done_units},
+        {"total_units", m_total_units},
+        {"leased_units", m_leased_units},
+        {"workers", m_workers},
+        {"finished", m_finished}};
     return j;
 }
 
@@ -188,7 +193,12 @@ namespace json_protocol {
     StatusPayload payload(
         string_to_cipher(j["cipher"]), j["cipher_text"], j["key"], j["score"]
     );
-    payload.m_progress = j["progress"];
+    payload.m_progress = j.value("progress", 0);
+    payload.m_done_units = j.value("done_units", 0);
+    payload.m_total_units = j.value("total_units", 0);
+    payload.m_leased_units = j.value("leased_units", 0);
+    payload.m_workers = j.value("workers", 0);
+    payload.m_finished = j.value("finished", false);
     return std::make_unique<StatusPayload>(std::move(payload));
 }
 
@@ -345,32 +355,25 @@ Message Message::create_peer_coordinator(std::unique_ptr<Payload> payload) {
 }
 
 
-asio::awaitable<void> Connection::send_message(const Message &msg) {
-    std::string json_str = msg.to_json().dump();
-
-    // json j = msg.to_json();
-    // std::cout << "\n🔵 [SEND] ====== ОТПРАВКА СООБЩЕНИЯ ======" << std::endl;
-    // std::cout << "📦 Размер JSON: " << json_str.size() << " байт" <<
-    // std::endl; std::cout << "📄 JSON содержимое:\n" << j.dump(2) << std::endl;
-
-    // Формат: [HEADER][JSON]
-    uint32_t size = json_str.size();
-
-    // std::cout << "📤 Отправка заголовка (size=" << size << " байт)"
-    //           << std::endl;
-
-    // Отправляем размер
+asio::awaitable<void> Connection::send_message_impl(std::string json_str) {
+    uint32_t size = static_cast<uint32_t>(json_str.size());
     co_await asio::async_write(
         socket_, asio::buffer(&size, sizeof(size)), asio::use_awaitable
     );
-
-    // Отправляем JSON
     co_await asio::async_write(
         socket_, asio::buffer(json_str), asio::use_awaitable
     );
+}
 
-    // std::cout << "✅ [SEND] Сообщение отправлено успешно" << std::endl;
-    // std::cout << "====================================\n" << std::endl;
+asio::awaitable<void> Connection::send_message(const Message &msg) {
+    std::string json_str = msg.to_json().dump();
+    co_await asio::co_spawn(
+        m_send_strand,
+        [this, payload = std::move(json_str)]() mutable -> asio::awaitable<void> {
+            co_await send_message_impl(std::move(payload));
+        },
+        asio::use_awaitable
+    );
 }
 
 asio::awaitable<Message> Connection::read_message() {

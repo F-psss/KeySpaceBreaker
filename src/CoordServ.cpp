@@ -110,10 +110,10 @@ asio::awaitable<void> CoordinatorServer::client_accept_loop() {
                 co_await m_client_acceptor.async_accept(asio::use_awaitable);
 
             auto session =
-                std::make_unique<ClientSession>(std::move(socket), *this);
+                std::make_shared<ClientSession>(std::move(socket), *this);
 
             session->start();
-            m_client = std::move(session);
+            m_client = session;
 
             std::cout << "Client connected" << std::endl;
         } catch (const std::exception &e) {
@@ -252,15 +252,78 @@ void CoordinatorServer::set_task(
             asio::detached
         );
     }
+
+    deliver_task_state_to_client();
+}
+
+void CoordinatorServer::deliver_task_state_to_client() {
+    if (!m_client || !m_coordinator) {
+        return;
+    }
+    if (m_coordinator->all_units_done()) {
+        std::cout << "Task already complete, sending result to client"
+                  << std::endl;
+        send_result_to_client(m_coordinator->best_result());
+    } else {
+        notify_client_progress(true);
+    }
 }
 
 void CoordinatorServer::send_result_to_client(const Result &result) {
-    if (!m_client) {
+    auto client = m_client;
+    if (!client) {
         std::cerr << "No client connected to send result\n";
         return;
     }
 
-    asio::co_spawn(m_io, m_client->send_final_result(result), asio::detached);
+    m_last_progress_sent_percent = 100;
+    client->post_final_result(result);
+}
+
+void CoordinatorServer::notify_client_progress(bool force) {
+    auto client = m_client;
+    if (!client || !m_coordinator) {
+        return;
+    }
+
+    const std::size_t total = m_coordinator->unit_count();
+    const std::size_t done = m_coordinator->done_units_count();
+    std::size_t leased = 0;
+    for (std::size_t i = 0; i < total; ++i) {
+        if (m_coordinator->get_unit(i).get_status() == UnitStatus::Leased) {
+            ++leased;
+        }
+    }
+
+    int progress_percent = 0;
+    if (total > 0) {
+        progress_percent = static_cast<int>((done * 100) / total);
+        if (m_coordinator->all_units_done()) {
+            progress_percent = 100;
+        }
+    }
+
+    const auto now = std::chrono::steady_clock::now();
+    const bool progress_changed =
+        progress_percent != m_last_progress_sent_percent;
+    if (!force && !progress_changed &&
+        now - m_last_progress_sent < PROGRESS_MIN_INTERVAL) {
+        return;
+    }
+
+    m_last_progress_sent = now;
+    m_last_progress_sent_percent = progress_percent;
+
+    const auto &best = m_coordinator->best_result();
+    client->post_progress_update(
+        best,
+        progress_percent,
+        done,
+        total,
+        leased,
+        m_workers.size(),
+        false
+    );
 }
 
 asio::awaitable<void> ClientSession::handle_task_request(
@@ -335,6 +398,7 @@ asio::awaitable<void> ClientSession::handle_task_request(
             m_server.set_task(encrypted_msg, policy, mode);
         }
     }
+    co_return;
 }
 
 void CoordinatorServer::start_timeout_checker() {
@@ -362,6 +426,7 @@ void CoordinatorServer::check_timeouts() {
     }
 
     maybe_save_checkpoint();
+    notify_client_progress();
 
     start_timeout_checker();  // следующая проверка
 }

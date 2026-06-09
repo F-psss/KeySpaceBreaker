@@ -140,12 +140,65 @@ public:
         return m_score;
     }
 
+    [[nodiscard]] int get_progress() const {
+        return m_progress;
+    }
+
+    void set_progress(int progress) {
+        m_progress = progress;
+    }
+
+    [[nodiscard]] std::size_t get_done_units() const {
+        return m_done_units;
+    }
+
+    void set_done_units(std::size_t n) {
+        m_done_units = n;
+    }
+
+    [[nodiscard]] std::size_t get_total_units() const {
+        return m_total_units;
+    }
+
+    void set_total_units(std::size_t n) {
+        m_total_units = n;
+    }
+
+    [[nodiscard]] std::size_t get_leased_units() const {
+        return m_leased_units;
+    }
+
+    void set_leased_units(std::size_t n) {
+        m_leased_units = n;
+    }
+
+    [[nodiscard]] std::size_t get_workers() const {
+        return m_workers;
+    }
+
+    void set_workers(std::size_t n) {
+        m_workers = n;
+    }
+
+    [[nodiscard]] bool is_finished() const {
+        return m_finished;
+    }
+
+    void set_finished(bool finished) {
+        m_finished = finished;
+    }
+
 private:
     decrypt::CipherType m_cipher = decrypt::CipherType::UNKNOWN;
     std::string m_cipher_text;
     std::string m_key;
     double m_score;
-    int m_progress;
+    int m_progress = 0;
+    std::size_t m_done_units = 0;
+    std::size_t m_total_units = 0;
+    std::size_t m_leased_units = 0;
+    std::size_t m_workers = 0;
+    bool m_finished = false;
 };
 
 class PingPayload final : public Payload {  // TODO
@@ -221,7 +274,9 @@ private:
 
 class Connection {
 public:
-    Connection(asio::ip::tcp::socket socket) : socket_(std::move(socket)) {
+    Connection(asio::ip::tcp::socket socket)
+        : socket_(std::move(socket)),
+          m_send_strand(asio::make_strand(socket_.get_executor())) {
     }
 
     asio::awaitable<void> send_message(const Message &msg);
@@ -243,7 +298,10 @@ public:
     }
 
 private:
+    asio::awaitable<void> send_message_impl(std::string json_str);
+
     asio::ip::tcp::socket socket_;
+    asio::strand<asio::any_io_executor> m_send_strand;
 };
 
 class HelloPayload final : public Payload {

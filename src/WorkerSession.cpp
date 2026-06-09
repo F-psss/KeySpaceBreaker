@@ -99,6 +99,7 @@ void WorkerSession::handle_message(const json_protocol::Message &msg) {
             m_server.m_coordinator->mark_unit_done(
                 m_current_unit_index.value()
             );
+            m_server.notify_client_progress();
             m_current_unit_index = std::nullopt;
             if (m_server.m_coordinator->all_units_done()) {
                 if (!m_server.is_subtask()) {

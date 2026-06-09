@@ -20,6 +20,7 @@ enum class Role { Primary, Backup };
 class CoordinatorServer {
     friend class WorkerSession;
     friend class PeerSession;
+    friend class ClientSession;
 
 public:
     CoordinatorServer(
@@ -47,6 +48,8 @@ public:
     );
 
     void send_result_to_client(const Result &result);
+    void notify_client_progress(bool force = false);
+    void deliver_task_state_to_client();
 
     asio::awaitable<std::string> run_subtask(
         std::shared_ptr<EncryptedMessage> message,
@@ -72,7 +75,7 @@ private:
     asio::ip::tcp::acceptor m_peer_acceptor;
 
     std::vector<std::shared_ptr<WorkerSession>> m_workers;
-    std::unique_ptr<ClientSession> m_client;
+    std::shared_ptr<ClientSession> m_client;
     std::unique_ptr<Coordinator> m_coordinator;
 
     std::vector<std::string> m_peer_addresses;
@@ -97,6 +100,10 @@ private:
     
     std::string m_checkpoint_path;
     std::size_t m_last_checkpoint_done = 0;
+
+    std::chrono::steady_clock::time_point m_last_progress_sent{};
+    int m_last_progress_sent_percent = -1;
+    static constexpr auto PROGRESS_MIN_INTERVAL = std::chrono::milliseconds(500);
     static constexpr std::size_t CHECKPOINT_EVERY_N_UNITS = 5;
     void maybe_save_checkpoint();
 

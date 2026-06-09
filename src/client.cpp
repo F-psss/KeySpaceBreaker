@@ -39,63 +39,103 @@ asio::awaitable<void> run_client(const app_config::ClientConfig &cfg) {
         co_await conn->send_message(request);
         auto start = std::chrono::steady_clock::now();
 
-        // ===== ждём ответ =====
-        auto response = co_await conn->read_message();
-        auto end = std::chrono::steady_clock::now();
-        auto duration =
-            std::chrono::duration_cast<std::chrono::milliseconds>(end - start)
-                .count();
+        const auto print_duration = [&](std::chrono::steady_clock::time_point end) {
+            auto duration =
+                std::chrono::duration_cast<std::chrono::milliseconds>(end - start)
+                    .count();
+            double total_seconds_double = duration / 1000.0;
+            int hours = static_cast<int>(total_seconds_double / 3600);
+            int minutes = static_cast<int>(
+                (total_seconds_double - hours * 3600) / 60
+            );
+            double seconds_remain =
+                total_seconds_double - hours * 3600 - minutes * 60;
 
-        if (response.get_type() == json_protocol::MessageType::RESPONSE &&
-            response.get_action() == json_protocol::Action::STATUS) {
+            if (hours > 0) {
+                std::cout << "Time:  " << hours << "h " << minutes << "min "
+                          << std::fixed << std::setprecision(1) << seconds_remain
+                          << "s\n";
+            } else if (minutes > 0) {
+                std::cout << "Time:  " << minutes << "min " << std::fixed
+                          << std::setprecision(1) << seconds_remain << "s\n";
+            } else {
+                std::cout << "Time:  " << std::fixed << std::setprecision(2)
+                          << total_seconds_double << "s\n";
+            }
+        };
+
+        const auto print_progress_line =
+            [](const json_protocol::StatusPayload *payload) {
+                std::cout << "\r[Progress] " << payload->get_progress() << "% "
+                          << "(" << payload->get_done_units() << "/"
+                          << payload->get_total_units() << " units)"
+                          << " | workers: " << payload->get_workers()
+                          << " | in flight: " << payload->get_leased_units()
+                          << " | best score: " << std::fixed
+                          << std::setprecision(2) << payload->get_score()
+                          << " | key: " << payload->get_key() << "   "
+                          << std::flush;
+            };
+
+        bool got_final = false;
+        std::string final_text;
+        std::string final_key;
+        double final_score = 0;
+        std::size_t final_done = 0;
+        std::size_t final_total = 0;
+
+        while (true) {
+            auto response = co_await conn->read_message();
+
+            if (response.get_type() != json_protocol::MessageType::RESPONSE ||
+                response.get_action() != json_protocol::Action::STATUS) {
+                std::cout << "\nServer responded:\n"
+                          << response.to_json().dump(4) << std::endl;
+                break;
+            }
+
             auto *payload = dynamic_cast<json_protocol::StatusPayload *>(
                 response.payload.get()
             );
-
-            if (payload != nullptr) {
-                std::cout << "\n===== BEST RESULT =====\n";
-                std::cout << "Text:  " << payload->get_cipher_text() << "\n";
-                std::cout << "Key:   " << payload->get_key() << "\n";
-                std::cout << "Score: " << payload->get_score() << "\n";
-                double total_seconds_double = duration / 1000.0;
-                int hours = static_cast<int>(total_seconds_double / 3600);
-                int minutes = static_cast<int>(
-                    (total_seconds_double - hours * 3600) / 60
-                );
-                double seconds_remain =
-                    total_seconds_double - hours * 3600 - minutes * 60;
-
-                if (hours > 0) {
-                    std::cout << "Time:  " << hours << "h " << minutes << "min "
-                              << std::fixed << std::setprecision(1)
-                              << seconds_remain << "s\n";
-                } else if (minutes > 0) {
-                    std::cout << "Time:  " << minutes << "min " << std::fixed
-                              << std::setprecision(1) << seconds_remain
-                              << "s\n";
-                } else {
-                    std::cout << "Time:  " << std::fixed << std::setprecision(2)
-                              << total_seconds_double << "s\n";
-                }
-                std::cout << "=======================\n";
-                if (!cfg.output_file.empty()) {
-                    std::ofstream out(cfg.output_file);
-                    if (out.is_open()) {
-                        out << "Text:  " << payload->get_cipher_text() << "\n";
-                        out << "Key:   " << payload->get_key() << "\n";
-                        out << "Score: " << payload->get_score() << "\n";
-                        std::cout << "Result saved to " << cfg.output_file << "\n";
-                    } else {
-                        std::cerr << "Cannot open output file: " << cfg.output_file << "\n";
-                    }
-                }
-            } else {
-                std::cout << "Server responded:\n"
+            if (payload == nullptr) {
+                std::cout << "\nServer responded:\n"
                           << response.to_json().dump(4) << std::endl;
+                break;
             }
-        } else {
-            std::cout << "Server responded:\n"
-                      << response.to_json().dump(4) << std::endl;
+
+            if (payload->is_finished()) {
+                got_final = true;
+                final_text = payload->get_cipher_text();
+                final_key = payload->get_key();
+                final_score = payload->get_score();
+                final_done = payload->get_done_units();
+                final_total = payload->get_total_units();
+                break;
+            }
+
+            print_progress_line(payload);
+        }
+
+        if (got_final) {
+            std::cout << "\n\n===== BEST RESULT =====\n";
+            std::cout << "Text:  " << final_text << "\n";
+            std::cout << "Key:   " << final_key << "\n";
+            std::cout << "Score: " << final_score << "\n";
+            std::cout << "Units: " << final_done << "/" << final_total << "\n";
+            print_duration(std::chrono::steady_clock::now());
+            std::cout << "=======================\n";
+            if (!cfg.output_file.empty()) {
+                std::ofstream out(cfg.output_file);
+                if (out.is_open()) {
+                    out << "Text:  " << final_text << "\n";
+                    out << "Key:   " << final_key << "\n";
+                    out << "Score: " << final_score << "\n";
+                    std::cout << "Result saved to " << cfg.output_file << "\n";
+                } else {
+                    std::cerr << "Cannot open output file: " << cfg.output_file
+                              << "\n";
+                }
+            }
         }
 
     } catch (const std::exception &e) {
