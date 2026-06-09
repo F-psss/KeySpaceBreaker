@@ -1,0 +1,7 @@
+{
+  "cipher": "vigenere",
+  "mode": "brute",
+  "key_length": 2,
+  "noise": 0.0,
+  "expected_key": "AB"
+}
