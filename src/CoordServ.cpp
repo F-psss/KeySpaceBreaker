@@ -21,14 +21,10 @@ CoordinatorServer::CoordinatorServer(
 )
     : m_io(io),
       m_id(id),
-      m_worker_acceptor(
-          io,
-          asio::ip::tcp::endpoint(asio::ip::tcp::v4(), worker_port)
-      ),
-      m_client_acceptor(
-          io,
-          asio::ip::tcp::endpoint(asio::ip::tcp::v4(), client_port)
-      ),
+      m_worker_port(worker_port),
+      m_client_port(client_port),
+      m_worker_acceptor(io),
+      m_client_acceptor(io),
       m_peer_acceptor(
           io,
           asio::ip::tcp::endpoint(asio::ip::tcp::v4(), peer_port)
@@ -60,8 +56,6 @@ std::string crop_text(const std::string &text) {
 }
 
 void CoordinatorServer::start() {
-    asio::co_spawn(m_io, worker_accept_loop(), asio::detached);
-    asio::co_spawn(m_io, client_accept_loop(), asio::detached);
     asio::co_spawn(m_io, peer_accept_loop(), asio::detached);
 
     for (const auto &addr : m_peer_addresses) {
@@ -95,8 +89,12 @@ asio::awaitable<void> CoordinatorServer::worker_accept_loop() {
             add_worker(session);
             session->start();
         } catch (const std::exception &e) {
+            if (!m_worker_acceptor.is_open()) {
+                std::cout << "Worker accept loop stopped (acceptor closed)" << std::endl;
+                co_return;
+            }
+
             std::cerr << "Worker accept error: " << e.what() << std::endl;
-            // При необходимости можно выйти из цикла, если ошибка фатальная
         }
     }
 }
@@ -117,6 +115,11 @@ asio::awaitable<void> CoordinatorServer::client_accept_loop() {
 
             std::cout << "Client connected" << std::endl;
         } catch (const std::exception &e) {
+            if (!m_client_acceptor.is_open()) {
+                std::cout << "Client accept loop stopped (acceptor closed)" << std::endl;
+                co_return;
+            }
+            
             std::cerr << "Client accept error: " << e.what() << std::endl;
         }
     }
@@ -446,6 +449,7 @@ void CoordinatorServer::on_peer_hello(std::shared_ptr<PeerSession> peer) {
             m_role = Role::Backup;
             m_primary_alive = true;
             m_last_primary_ping = std::chrono::steady_clock::now();
+            update_serving_state();
         } else {
             asio::co_spawn(m_io, announce_coordinator(), asio::detached);
         }
@@ -482,8 +486,8 @@ void CoordinatorServer::recompute_role() {
         m_role = Role::Primary;
         m_primary_alive = true;
         std::cout << "Role changed to PRIMARY" << std::endl;
+        update_serving_state();
         asio::co_spawn(m_io, announce_coordinator(), asio::detached);
-        // TODO: открыть/закрыть worker и client акцепторы в зависимости от роли
     }
 }
 
@@ -593,6 +597,7 @@ void CoordinatorServer::start_election() {
             m_election_in_progress = false;
             m_role = Role::Primary;
             m_primary_alive = true;
+            update_serving_state(); 
             asio::co_spawn(m_io, announce_coordinator(), asio::detached);
         }
     });
@@ -683,8 +688,54 @@ void CoordinatorServer::on_peer_coordinator(int from_id) {
     m_role = Role::Backup;
     m_election_in_progress = false;
     m_received_alive = false;
-    m_primary_alive = false; // ждём первого пинга, только тогда будет true
+    m_primary_alive = true;
     m_last_primary_ping = std::chrono::steady_clock::now();
+    update_serving_state();
+}
+
+
+void CoordinatorServer::open_serving_acceptors() {
+    if (m_serving) return;  // already open
+
+    std::error_code ec;
+    asio::ip::tcp::endpoint worker_ep(asio::ip::tcp::v4(), m_worker_port);
+    m_worker_acceptor.open(worker_ep.protocol(), ec);
+    m_worker_acceptor.set_option(asio::socket_base::reuse_address(true), ec);
+    m_worker_acceptor.bind(worker_ep, ec);
+    if (ec) { std::cerr << "worker bind failed: " << ec.message() << std::endl; return; }
+    m_worker_acceptor.listen(asio::socket_base::max_listen_connections, ec);
+
+    asio::ip::tcp::endpoint client_ep(asio::ip::tcp::v4(), m_client_port);
+    m_client_acceptor.open(client_ep.protocol(), ec);
+    m_client_acceptor.set_option(asio::socket_base::reuse_address(true), ec);
+    m_client_acceptor.bind(client_ep, ec);
+    if (ec) { std::cerr << "client bind failed: " << ec.message() << std::endl; return; }
+    m_client_acceptor.listen(asio::socket_base::max_listen_connections, ec);
+
+    m_serving = true;
+    std::cout << "Serving acceptors OPENED (worker:" << m_worker_port
+              << " client:" << m_client_port << ")" << std::endl;
+
+    asio::co_spawn(m_io, worker_accept_loop(), asio::detached);
+    asio::co_spawn(m_io, client_accept_loop(), asio::detached);
+}
+
+void CoordinatorServer::close_serving_acceptors() {
+    if (!m_serving) return;
+
+    std::error_code ec;
+    m_worker_acceptor.close(ec);
+    m_client_acceptor.close(ec);
+    m_serving = false;
+    std::cout << "Serving acceptors CLOSED (now Backup)" << std::endl;
+}
+
+void CoordinatorServer::update_serving_state() {
+    if (m_role == Role::Primary) {
+        open_serving_acceptors();
+    } else {
+        close_serving_acceptors();
+    }
 }
 
 }  // namespace server

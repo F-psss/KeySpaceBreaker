@@ -30,8 +30,7 @@ struct CoordinatorConfig {
 };
 
 struct WorkerConfig {
-    std::string coordinator_host;
-    int coordinator_port;
+    std::vector<std::string> coordinator_addresses; 
     std::string dict_path;
 };
 

@@ -64,6 +64,15 @@ private:
     int m_id;
     bool m_is_subtask = false;
 
+    short m_worker_port;
+    short m_client_port;
+    // are worker/client acceptors open
+    bool m_serving = false;
+
+    void open_serving_acceptors();
+    void close_serving_acceptors();
+    void update_serving_state();
+
     Role m_role = Role::Backup;
     void recompute_role();
 
