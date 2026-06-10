@@ -330,10 +330,6 @@ asio::awaitable<void> ClientSession::handle_task_request(
         const double noise = payload->get_noise();
         decrypt::CipherType cipher = payload->get_cipher();
         decrypt::VigenereMode mode = payload->get_mode();
-        // std::cout << "NOISE FROM CLIENT = " << noise << std::endl;
-        // std::cout << "DEBUG: cipher_keys = " << start << ' ' << end
-        //           << std::endl;
-
         if (payload->get_cipher() == decrypt::CipherType::CAESAR) {
             // TODO: нужно добавить возможность менять размер юнита
             auto policy =
@@ -345,12 +341,10 @@ asio::awaitable<void> ClientSession::handle_task_request(
                 payload->get_cipher_text().end()
             );
             int key_len = payload->get_key_length();
-            std::cout << "key_len = " << key_len << '\n';
             if (key_len < 1 || key_len > 7) {
                 key_len =
                     KasiskiAnalyzer::guessKeyLength(full_ciphertext, 2, 7);
             }
-            std::cout << "key_len = " << key_len << '\n';
             const int total = std::pow(26, key_len);
             auto policy = std::make_shared<StaticPolicy>(
                 total, 10000, noise, cipher, mode, key_len

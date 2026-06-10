@@ -152,7 +152,6 @@ app_config::ClientConfig run(int argc, char **argv) {
     config.cipher = cipher;
     config.noise = noise;
     config.mode = mode;
-    std::cout << "mode = " << bool(mode == decrypt::VigenereMode::FAST) << '\n';
     if (key_length != -1 && (key_length >= 7 || key_length < 0)) {
         throw std::runtime_error("key-length must be in range 1..6");
     }
